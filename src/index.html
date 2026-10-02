@@ -2,12 +2,98 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Lead Hunter · Test</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Lead Hunter</title>
+<link rel="icon" type="image/png" href="/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
 </head>
-<body style="background:#050608;color:#fff;font-family:sans-serif;padding:40px;text-align:center">
-<h1 style="font-size:32px;margin-bottom:16px">Lead Hunter работает</h1>
-<p style="color:#8b92a3">Если видишь эту страницу - механизм загрузки HTML в порядке.</p>
-<p style="margin-top:24px"><a href="/api/auth/me" style="color:#4d9fff">Проверить API</a></p>
+<body>
+
+<div class="preloader" id="preloader">
+  <div class="preloader-logo"><img src="/logo.png" alt="LH"></div>
+  <div class="preloader-brand">LEAD HUNTER</div>
+  <div class="preloader-bar" id="preloaderBar"></div>
+  <div class="preloader-pct" id="preloaderPct">0%</div>
+</div>
+
+<div class="modal" id="authModal">
+  <div class="modal-bg" id="authModalBg"></div>
+  <div class="modal-body">
+    <button class="modal-close" id="authModalClose">×</button>
+    <h2 id="authTitle">Вход</h2>
+    <p class="sub" id="authSub">Войди чтобы искать клиентов</p>
+    <form id="authForm" onsubmit="return false">
+      <div class="field"><label>Email</label><input id="authEmail" type="email" placeholder="you@example.com"></div>
+      <div class="field"><label>Пароль</label><input id="authPassword" type="password" placeholder="минимум 6 символов"></div>
+      <button class="btn btn-primary" id="authSubmit" type="submit">Войти</button>
+      <div class="modal-msg" id="authMsg"></div>
+      <div class="modal-switch"><span id="authSwitchText">Нет аккаунта?</span> <a id="authSwitchLink">Регистрация</a></div>
+    </form>
+  </div>
+</div>
+
+<div class="drawer" id="drawer">
+  <div class="drawer-bg" id="drawerBg"></div>
+  <div class="drawer-body">
+    <div class="drawer-head">
+      <button class="drawer-close" id="drawerClose">×</button>
+      <div id="drawerAuth"></div>
+      <div id="drawerGuest">
+        <div class="drawer-user">
+          <div class="drawer-avatar">?</div>
+          <div><div class="drawer-email">Гость</div><div class="drawer-sub">Войди чтобы начать</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="drawer-nav" id="drawerNav"></div>
+    <div class="drawer-foot">Lead Hunter · v1.0</div>
+  </div>
+</div>
+
+<div class="app" id="app">
+  <nav class="nav">
+    <div class="nav-brand"><img src="/logo.png" alt="LH"><span>LEAD HUNTER</span></div>
+    <div class="nav-right">
+      <span class="nav-plan free" id="navPlan" style="display:none">FREE</span>
+      <button class="btn-login" id="navLogin">Войти</button>
+      <button class="burger" id="burger"><span></span><span></span><span></span></button>
+    </div>
+  </nav>
+
+  <div class="hero">
+    <h1>Найди бизнесы <span class="grad">без сайта</span><br>в любом городе СНГ</h1>
+    <p>Выбери <b>город</b> и <b>нишу</b> - получишь базу контактов из OpenStreetMap. <b>Телефоны, адреса, координаты</b>.</p>
+  </div>
+
+  <div class="panel">
+    <div class="search-row">
+      <div class="field"><label>Город</label><input id="city" placeholder="Москва" value="Москва"></div>
+      <div class="field"><label>Ниша</label><input id="niche" placeholder="стоматология" value="стоматология"></div>
+      <button class="btn btn-primary" id="go">Найти клиентов</button>
+      <button class="btn btn-ghost" id="csv">CSV</button>
+    </div>
+    <div class="presets" id="presets"></div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="stat-label">Найдено</div><div class="stat-value" id="s-total">0</div></div>
+    <div class="stat ok"><div class="stat-label">С телефоном</div><div class="stat-value" id="s-phone">0</div></div>
+    <div class="stat warm"><div class="stat-label">С адресом</div><div class="stat-value" id="s-addr">0</div></div>
+    <div class="stat accent"><div class="stat-label">Локация</div><div class="stat-value sm" id="s-city">-</div></div>
+  </div>
+
+  <div class="actionbar">
+    <span class="live-dot"></span>
+    <span id="info">Введи город и нишу, нажми «Найти клиентов»</span>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <footer><div>© 2026 Lead Hunter · OpenStreetMap</div><div>Cloudflare Workers</div></footer>
+</div>
+
+<script src="/script.js"></script>
 </body>
 </html>
