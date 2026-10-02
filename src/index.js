@@ -1,14 +1,53 @@
 import html from './index.html';
+import logo from './logo.png';
 
 export default {
   async fetch(request) {
     const url = new URL(request.url);
-    if (url.pathname.startsWith('/api/')) return handleLeads(request);
+    if (url.pathname === '/api/search') return handleSearch(request);
+    if (url.pathname === '/logo.png') {
+      return new Response(logo, {
+        headers: {
+          'Content-Type': 'image/png',
+          'Cache-Control': 'public, max-age=86400',
+        },
+      });
+    }
     return new Response(html, {
       headers: { 'Content-Type': 'text/html; charset=utf-8' },
     });
   }
 };
+
+const NICHES = {
+  'стоматология':      [['amenity','dentist'],['healthcare','dentist']],
+  'кафе':              [['amenity','cafe']],
+  'ресторан':          [['amenity','restaurant']],
+  'бар':               [['amenity','bar']],
+  'парикмахерская':    [['shop','hairdresser']],
+  'салон красоты':     [['shop','beauty']],
+  'автосервис':        [['shop','car_repair']],
+  'аптека':            [['amenity','pharmacy']],
+  'фитнес':            [['leisure','fitness_centre']],
+  'юрист':             [['office','lawyer']],
+  'автомойка':         [['amenity','car_wash']],
+  'магазин одежды':    [['shop','clothes']],
+  'пекарня':           [['shop','bakery']],
+  'цветы':             [['shop','florist']],
+  'книжный':           [['shop','books']],
+  'мебель':            [['shop','furniture']],
+  'зоомагазин':        [['shop','pet']],
+  'ювелирный':         [['shop','jewelry']],
+  'оптика':            [['shop','optician']],
+  'агентство недвижимости': [['office','estate_agent']],
+};
+
+const OVERPASS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+];
+
+const UA = 'LeadHunter/1.0 (contact@example.com)';
 
 function withTimeout(promise, ms) {
   return Promise.race([
@@ -17,154 +56,138 @@ function withTimeout(promise, ms) {
   ]);
 }
 
-const RSS_SOURCES = [
-  { url: 'https://www.fl.ru/rss/all.xml', name: 'FL.ru' },
-];
-
-const KWORK_URLS = [
-  { url: 'https://kwork.ru/projects', name: 'Kwork' },
-];
-
-const WEIGHTS = [
-  [/парс|scrap|crawl|спарс|сбор\s*данн/i, 3],
-  [/selenium|playwright|puppeteer|headless|антибот/i, 3],
-  [/автоматиз|бот|автосбор|монитор|отслеж|интеграц/i, 2],
-  [/api|выгруз|excel|csv|google\s*sheet|гугл\s*табл/i, 2],
-  [/нужен|ищу|требуется|заказ|бюджет|оплата|рубл|₽|\$/i, 1],
-];
-
-function scoreLead(lead) {
-  const text = lead.title + ' ' + lead.desc;
-  let score = 0;
-  for (const [re, w] of WEIGHTS) if (re.test(text)) score += w;
-  return score;
+async function geocode(city) {
+  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=jsonv2&limit=1&accept-language=ru`;
+  const r = await fetch(url, { headers: { 'User-Agent': UA } });
+  if (!r.ok) throw new Error('geocode ' + r.status);
+  const data = await r.json();
+  if (!data.length) throw new Error('город не найден');
+  const hit = data[0];
+  let areaId;
+  if (hit.osm_type === 'relation') areaId = 3600000000 + hit.osm_id;
+  else if (hit.osm_type === 'way') areaId = 2400000000 + hit.osm_id;
+  else throw new Error('город не поддержан (node)');
+  return { areaId, display: hit.display_name };
 }
 
-function decodeEntities(s) {
-  return s
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(n));
-}
-
-function stripHTML(s) {
-  return decodeEntities(s.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '')).trim();
-}
-
-async function fetchXML(url) {
-  const r = await fetch(url, {
-    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; LeadHunter/1.0)' },
-    cf: { cacheTtl: 300 },
-  });
-  if (!r.ok) throw new Error(`${url} → ${r.status}`);
-  return r.text();
-}
-
-function parseRSS(xml, source) {
-  const items = [...xml.matchAll(/<item[\s\S]*?<\/item>/g)];
-  return items.map(m => {
-    const b = m[0];
-    const pick = (tag) => {
-      const re = new RegExp(`<${tag}[^>]*>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?<\\/${tag}>`, 'i');
-      const mm = b.match(re);
-      return mm ? stripHTML(mm[1]) : '';
-    };
-    return {
-      title: pick('title'),
-      link: pick('link'),
-      desc: pick('description').slice(0, 400),
-      date: pick('pubDate'),
-      source,
-    };
-  }).filter(l => l.title && l.link);
-}
-
-async function fetchKwork(url, sourceName) {
-  const r = await fetch(url, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Language': 'ru-RU,ru;q=0.9,en;q=0.8',
-      'Referer': 'https://kwork.ru/',
-    },
-    cf: { cacheTtl: 300 },
-  });
-  if (!r.ok) throw new Error(`${url} → ${r.status}`);
-  const body = await r.text();
-  return parseKwork(body, sourceName);
-}
-
-// Универсальный парсер: ловит любые ссылки вида /projects/NNNN и берёт текст ссылки как заголовок
-function parseKwork(body, sourceName) {
-  const leads = [];
-  const seen = new Set();
-  const re = /<a[^>]+href="(\/projects\/\d+)"[^>]*>([\s\S]*?)<\/a>/g;
-  let m;
-  while ((m = re.exec(body)) !== null) {
-    const link = 'https://kwork.ru' + m[1];
-    if (seen.has(link)) continue;
-    const title = stripHTML(m[2]);
-    if (!title || title.length < 8) continue;
-    seen.add(link);
-    leads.push({
-      title: title.slice(0, 160),
-      link,
-      desc: '',
-      date: '',
-      source: sourceName,
-    });
+function buildOverpassQuery(areaId, niche) {
+  const tags = NICHES[niche.toLowerCase().trim()];
+  if (!tags) {
+    return `[out:json][timeout:25];
+area(${areaId})->.a;
+(
+  node["name"~"${niche}","i"][!website][!contact:website](area.a);
+  way["name"~"${niche}","i"][!website][!contact:website](area.a);
+);
+out center 80;`;
   }
-  return leads;
+  let parts = '';
+  for (const [k, v] of tags) {
+    parts += `node["${k}"="${v}"][!website][!contact:website](area.a);`;
+    parts += `way["${k}"="${v}"][!website][!contact:website](area.a);`;
+  }
+  return `[out:json][timeout:25];
+area(${areaId})->.a;
+(${parts});
+out center 80;`;
 }
 
-async function handleLeads(request) {
+async function overpass(query) {
+  let lastErr;
+  for (const endpoint of OVERPASS) {
+    try {
+      const r = await withTimeout(
+        fetch(endpoint, {
+          method: 'POST',
+          headers: { 'User-Agent': UA, 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'data=' + encodeURIComponent(query),
+        }),
+        28000
+      );
+      if (!r.ok) throw new Error(endpoint + ' ' + r.status);
+      const data = await r.json();
+      return data.elements || [];
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr || new Error('overpass failed');
+}
+
+function extract(elem) {
+  const t = elem.tags || {};
+  const name = t.name || t['name:ru'] || '';
+  if (!name) return null;
+  const lat = elem.lat ?? elem.center?.lat;
+  const lon = elem.lon ?? elem.center?.lon;
+  const addr = [
+    t['addr:street'],
+    t['addr:housenumber'],
+  ].filter(Boolean).join(' ');
+  const phone = t.phone || t['contact:phone'] || '';
+  const email = t.email || t['contact:email'] || '';
+  const site = t.website || t['contact:website'] || '';
+  return {
+    id: elem.id,
+    name,
+    phone,
+    email,
+    addr,
+    lat,
+    lon,
+    site,
+    type: t.amenity || t.shop || t.office || t.healthcare || t.leisure || '',
+  };
+}
+
+async function handleSearch(request) {
+  const url = new URL(request.url);
+  const city = (url.searchParams.get('city') || '').trim();
+  const niche = (url.searchParams.get('niche') || '').trim();
   const CORS = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
     'Content-Type': 'application/json; charset=utf-8',
   };
-  if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
-
+  if (!city || !niche) {
+    return new Response(JSON.stringify({ error: 'нужны параметры city и niche', leads: [] }),
+      { status: 400, headers: CORS });
+  }
   const debug = {};
-  const test = async (name, fn) => {
-    const t0 = Date.now();
-    try {
-      const r = await withTimeout(fn(), 8000);
-      debug[name] = { ok: true, ms: Date.now() - t0, count: Array.isArray(r) ? r.length : 0 };
-      return r;
-    } catch (e) {
-      debug[name] = { ok: false, ms: Date.now() - t0, error: e.message };
-      return [];
-    }
-  };
+  const t0 = Date.now();
+  try {
+    const { areaId, display } = await withTimeout(geocode(city), 10000);
+    debug.geocode_ms = Date.now() - t0;
+    debug.area_id = areaId;
+    debug.area_display = display;
 
-  const results = await Promise.all([
-    ...RSS_SOURCES.map(s => test(s.name, () => fetchXML(s.url).then(x => parseRSS(x, s.name)))),
-    ...KWORK_URLS.map(s => test(s.name, () => fetchKwork(s.url, s.name))),
-  ]);
+    const q = buildOverpassQuery(areaId, niche);
+    debug.query_len = q.length;
 
-  const all = results.flat();
-  const seen = new Set();
-  const unique = all.filter(l => {
-    const k = l.link.replace(/[?#].*$/, '');
-    if (seen.has(k)) return false;
-    seen.add(k);
-    return true;
-  });
+    const t1 = Date.now();
+    const elements = await overpass(q);
+    debug.overpass_ms = Date.now() - t1;
+    debug.raw_count = elements.length;
 
-  return new Response(JSON.stringify({
-    count: unique.length,
-    updated: new Date().toISOString(),
-    sources: [...new Set(unique.map(l => l.source))],
-    leads: unique.map(l => ({ ...l, score: scoreLead(l) }))
-      .filter(l => l.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 150),
-    debug,
-  }), { headers: CORS });
+    const leads = elements.map(extract).filter(Boolean);
+    const seen = new Set();
+    const unique = leads.filter(l => {
+      const k = l.name.toLowerCase() + '|' + (l.lat?.toFixed(3) || '');
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+
+    return new Response(JSON.stringify({
+      count: unique.length,
+      city: display,
+      niche,
+      updated: new Date().toISOString(),
+      leads: unique,
+      debug,
+    }), { headers: { ...CORS, 'Cache-Control': 'public, max-age=3600' } });
+  } catch (e) {
+    return new Response(JSON.stringify({ error: e.message, leads: [], debug }), {
+      status: 500, headers: CORS,
+    });
+  }
 }
