@@ -715,10 +715,13 @@
     var infoEl = $('info');
     if(infoEl) infoEl.innerHTML = 'Ищу «' + esc(niche) + '» в ' + esc(city) + '…';
 
+    var locData = null;
+
     fetch(API + '?city=' + encodeURIComponent(city) + '&niche=' + encodeURIComponent(niche))
       .then(function(r){ return r.json(); })
       .then(function(loc){
         if(loc.error) throw new Error(loc.error);
+        locData = loc;
 
         if(infoEl) infoEl.innerHTML = 'Опрашиваю OpenStreetMap…';
 
@@ -755,6 +758,7 @@
         return tryEndpoint(0, '');
       })
       .then(function(overpassData){
+        var loc = locData;
         var elements = overpassData.elements || [];
         var leads = [];
         var seen = {};
