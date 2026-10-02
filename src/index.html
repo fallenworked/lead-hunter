@@ -487,43 +487,56 @@
 </div>
 
 <script>
-window.addEventListener('error', function(e){
-  console.error('JS error:', e.message);
-  var pl = document.getElementById('preloader');
-  var app = document.getElementById('app');
-  if(pl) pl.classList.add('hide');
-  if(app) app.classList.add('show');
-});
-window.addEventListener('unhandledrejection', function(e){
-  console.error('Promise error:', e.reason);
-});
-
 (function(){
   'use strict';
 
-  const state = { leads: [], city: '', niche: '' };
+  var state = { leads: [], city: '', niche: '' };
+  var API = '/api/locate';
 
-  const $ = id => document.getElementById(id);
-  const $grid = $('grid');
-  const esc = s => String(s||'').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+  function $(id){ return document.getElementById(id); }
+  function $grid(){ return $('grid'); }
 
-  const PRESETS = ['стоматология','кафе','парикмахерская','автосервис','аптека','салон красоты','фитнес','юрист','пекарня','оптика','цветы','мебель','кофейня','ветклиника'];
+  function esc(s){
+    s = String(s == null ? '' : s);
+    s = s.split('&').join('&amp;');
+    s = s.split('<').join('&lt;');
+    s = s.split('>').join('&gt;');
+    s = s.split('"').join('&quot;');
+    return s;
+  }
+
+  var PRESETS = ['стоматология','кафе','парикмахерская','автосервис','аптека','салон красоты','фитнес','юрист','пекарня','оптика','цветы','мебель','кофейня','ветклиника'];
+
+  function showPreloaderFallback(){
+    var pl = $('preloader');
+    var app = $('app');
+    if(pl) pl.classList.add('hide');
+    if(app) app.classList.add('show');
+  }
+
+  window.addEventListener('error', function(e){
+    console.error('JS error:', e.message);
+    showPreloaderFallback();
+  });
+  window.addEventListener('unhandledrejection', function(e){
+    console.error('Promise error:', e.reason);
+  });
 
   function preload(){
     return new Promise(function(resolve){
-      var pl = $('preloader');
-      var app = $('app');
       var bar = $('preloaderBar');
       var pct = $('preloaderPct');
       var status = $('preloaderStatus');
+      var finished = false;
 
       function finish(){
-        if(pl) pl.classList.add('hide');
-        if(app) app.classList.add('show');
-        setTimeout(resolve, 400);
+        if(finished) return;
+        finished = true;
+        showPreloaderFallback();
+        setTimeout(resolve, 300);
       }
 
-      var safety = setTimeout(finish, 4000);
+      var safety = setTimeout(finish, 3500);
 
       if(!bar || !pct || !status){
         clearTimeout(safety);
@@ -532,12 +545,12 @@ window.addEventListener('unhandledrejection', function(e){
       }
 
       var steps = [
-        [0,  'инициализация системы'],
+        [0, 'инициализация'],
         [20, 'загрузка модулей'],
         [40, 'подключение к картам'],
-        [60, 'загрузка базы городов'],
+        [60, 'база городов'],
         [80, 'финальная сборка'],
-        [100,'готово к работе'],
+        [100, 'готово']
       ];
 
       var p = 0;
@@ -547,12 +560,14 @@ window.addEventListener('unhandledrejection', function(e){
         try {
           bar.style.setProperty('--progress', p + '%');
           pct.textContent = p + '%';
-          var s = steps.filter(function(x){ return x[0] <= p; }).pop();
-          if(s) status.textContent = s[1];
-        } catch(err){
-          console.error('preload step err', err);
+          var label = '';
+          for(var i = 0; i < steps.length; i++){
+            if(steps[i][0] <= p) label = steps[i][1];
+          }
+          if(label) status.textContent = label;
+        } catch(err) {
+          console.error('preload err', err);
         }
-
         if(p < 100){
           setTimeout(step, 50);
         } else {
@@ -567,23 +582,32 @@ window.addEventListener('unhandledrejection', function(e){
   function renderPresets(){
     var el = $('presets');
     if(!el) return;
-    el.innerHTML = PRESETS.map(function(p){
-      return '<div class="preset" data-v="' + esc(p) + '">' + esc(p) + '</div>';
-    }).join('');
+    var html = '';
+    for(var i = 0; i < PRESETS.length; i++){
+      html += '<div class="preset" data-v="' + esc(PRESETS[i]) + '">' + esc(PRESETS[i]) + '</div>';
+    }
+    el.innerHTML = html;
   }
 
   function renderSkeleton(){
-    if(!$grid) return;
-    $grid.innerHTML = new Array(6).fill('<div class="skeleton"></div>').join('');
+    var g = $grid();
+    if(!g) return;
+    var html = '';
+    for(var i = 0; i < 6; i++){
+      html += '<div class="skeleton"></div>';
+    }
+    g.innerHTML = html;
   }
 
   function animateNumber(el, target){
     if(!el) return;
-    var start = parseInt(el.textContent) || 0;
-    var dur = 700;
-    var t0 = performance.now();
-    function tick(t){
-      var k = Math.min(1, (t - t0) / dur);
+    var start = parseInt(el.textContent, 10) || 0;
+    var dur = 600;
+    var t0 = new Date().getTime();
+    function tick(){
+      var elapsed = new Date().getTime() - t0;
+      var k = elapsed / dur;
+      if(k > 1) k = 1;
       var eased = 1 - Math.pow(1 - k, 3);
       el.textContent = Math.floor(start + (target - start) * eased);
       if(k < 1) requestAnimationFrame(tick);
@@ -592,53 +616,92 @@ window.addEventListener('unhandledrejection', function(e){
     requestAnimationFrame(tick);
   }
 
+  function pad2(n){
+    n = String(n);
+    while(n.length < 2) n = '0' + n;
+    return n;
+  }
+
   function render(){
-    if(!$grid) return;
+    var g = $grid();
+    if(!g) return;
     var leads = state.leads;
     if(!leads.length){
-      $grid.innerHTML = '<div class="empty"><div class="empty-icon">∅</div><h2>Ничего не найдено</h2><p>Попробуй другую нишу или город</p></div>';
+      g.innerHTML = '<div class="empty"><div class="empty-icon">∅</div><h2>Ничего не найдено</h2><p>Попробуй другую нишу или город</p></div>';
       return;
     }
-    $grid.innerHTML = leads.map(function(l, i){
+
+    var html = '';
+    for(var i = 0; i < leads.length; i++){
+      var l = leads[i];
       var hasPhone = !!l.phone;
       var badge = hasPhone
         ? '<div class="badge">✓ контакт</div>'
         : '<div class="badge nocontact">только адрес</div>';
-      var phoneClean = (l.phone||'').replace(/[^\d+]/g, '');
-      var waLink = phoneClean ? 'https://wa.me/' + phoneClean.replace(/^\+?8/, '7') : '';
-      var yandexLink = 'https://yandex.ru/maps/?text=' + encodeURIComponent((l.name||'') + ' ' + (state.city||''));
+
+      var phoneClean = '';
+      if(l.phone){
+        phoneClean = String(l.phone).split('').filter(function(c){
+          return c === '+' || (c >= '0' && c <= '9');
+        }).join('');
+      }
+      var waLink = phoneClean ? 'https://wa.me/' + phoneClean.replace(/^[+]?8/, '7') : '';
+      var yandexLink = 'https://yandex.ru/maps/?text=' + encodeURIComponent((l.name || '') + ' ' + (state.city || ''));
       var gisLink = 'https://2gis.ru/search/' + encodeURIComponent(l.name + ' ' + state.city);
-      var routeLink = l.lat && l.lon ? 'https://yandex.ru/maps/?rtext=~' + l.lat + ',' + l.lon : '';
-      return '<article class="card" style="animation-delay:' + Math.min(i * 30, 400) + 'ms">' +
-        '<div class="card-head">' +
-          '<div style="flex:1;min-width:0">' +
-            '<span class="card-idx">#' + String(i+1).padStart(2,'0') + (l.type ? ' · ' + esc(l.type.toUpperCase()) : '') + '</span>' +
-            '<h3>' + esc(l.name) + '</h3>' +
-          '</div>' +
-          badge +
-        '</div>' +
-        '<div class="contacts">' +
-          (l.phone ? '<div class="contact-line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.13.96.36 1.9.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0122 16.92z"/></svg><a href="tel:' + esc(l.phone) + '"><b>' + esc(l.phone) + '</b></a></div>' : '') +
-          (l.email ? '<div class="contact-line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 6l-10 7L2 6"/></svg><a href="mailto:' + esc(l.email) + '"><b>' + esc(l.email) + '</b></a></div>' : '') +
-          (l.addr ? '<div class="contact-line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg><span>' + esc(l.addr) + '</span></div>' : '') +
-          (l.opening ? '<div class="contact-line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>' + esc(l.opening) + '</span></div>' : '') +
-          (!l.phone && !l.email && !l.addr ? '<div class="contact-line"><span style="opacity:.5">контакты в OSM отсутствуют</span></div>' : '') +
-        '</div>' +
-        '<div class="contact-actions">' +
-          (l.phone ? '<a class="primary" href="tel:' + esc(l.phone) + '">Позвонить</a>' : '') +
-          (waLink ? '<a href="' + waLink + '" target="_blank" rel="noopener">WhatsApp</a>' : '') +
-          '<a href="' + yandexLink + '" target="_blank" rel="noopener">Я.Карты</a>' +
-          '<a href="' + gisLink + '" target="_blank" rel="noopener">2GIS</a>' +
-          (routeLink ? '<a href="' + routeLink + '" target="_blank" rel="noopener">Маршрут</a>' : '') +
-        '</div>' +
-      '</article>';
-    }).join('');
+      var routeLink = (l.lat && l.lon) ? 'https://yandex.ru/maps/?rtext=~' + l.lat + ',' + l.lon : '';
+
+      var delay = i * 30;
+      if(delay > 400) delay = 400;
+
+      html += '<article class="card" style="animation-delay:' + delay + 'ms">';
+      html += '<div class="card-head">';
+      html += '<div style="flex:1;min-width:0">';
+      html += '<span class="card-idx">#' + pad2(i+1) + (l.type ? ' · ' + esc(String(l.type).toUpperCase()) : '') + '</span>';
+      html += '<h3>' + esc(l.name) + '</h3>';
+      html += '</div>' + badge + '</div>';
+
+      html += '<div class="contacts">';
+      if(l.phone){
+        html += '<div class="contact-line">';
+        html += '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.13.96.36 1.9.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0122 16.92z"/></svg>';
+        html += '<a href="tel:' + esc(l.phone) + '"><b>' + esc(l.phone) + '</b></a>';
+        html += '</div>';
+      }
+      if(l.email){
+        html += '<div class="contact-line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 6l-10 7L2 6"/></svg>';
+        html += '<a href="mailto:' + esc(l.email) + '"><b>' + esc(l.email) + '</b></a></div>';
+      }
+      if(l.addr){
+        html += '<div class="contact-line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>';
+        html += '<span>' + esc(l.addr) + '</span></div>';
+      }
+      if(l.opening){
+        html += '<div class="contact-line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+        html += '<span>' + esc(l.opening) + '</span></div>';
+      }
+      if(!l.phone && !l.email && !l.addr){
+        html += '<div class="contact-line"><span style="opacity:.5">контакты в OSM отсутствуют</span></div>';
+      }
+      html += '</div>';
+
+      html += '<div class="contact-actions">';
+      if(l.phone) html += '<a class="primary" href="tel:' + esc(l.phone) + '">Позвонить</a>';
+      if(waLink) html += '<a href="' + waLink + '" target="_blank" rel="noopener">WhatsApp</a>';
+      html += '<a href="' + yandexLink + '" target="_blank" rel="noopener">Я.Карты</a>';
+      html += '<a href="' + gisLink + '" target="_blank" rel="noopener">2GIS</a>';
+      if(routeLink) html += '<a href="' + routeLink + '" target="_blank" rel="noopener">Маршрут</a>';
+      html += '</div>';
+
+      html += '</article>';
+    }
+    g.innerHTML = html;
   }
 
-  async function search(){
+  function doSearch(){
     var cityEl = $('city');
     var nicheEl = $('niche');
     if(!cityEl || !nicheEl) return;
+
     var city = cityEl.value.trim();
     var niche = nicheEl.value.trim();
     if(!city || !niche){ alert('Заполни город и нишу'); return; }
@@ -648,111 +711,133 @@ window.addEventListener('unhandledrejection', function(e){
     var goBtn = $('go');
     if(goBtn) goBtn.disabled = true;
     renderSkeleton();
+
     var infoEl = $('info');
-    if(infoEl) infoEl.innerHTML = 'Ищу <b>«' + esc(niche) + '»</b> в <b>' + esc(city) + '</b>…';
+    if(infoEl) infoEl.innerHTML = 'Ищу «' + esc(niche) + '» в ' + esc(city) + '…';
 
-    try {
-      var locRes = await fetch('/api/locate?city=' + encodeURIComponent(city) + '&niche=' + encodeURIComponent(niche));
-      var loc = await locRes.json();
-      if(loc.error) throw new Error(loc.error);
+    fetch(API + '?city=' + encodeURIComponent(city) + '&niche=' + encodeURIComponent(niche))
+      .then(function(r){ return r.json(); })
+      .then(function(loc){
+        if(loc.error) throw new Error(loc.error);
 
-      if(infoEl) infoEl.innerHTML = 'Опрашиваю OpenStreetMap…';
+        if(infoEl) infoEl.innerHTML = 'Опрашиваю OpenStreetMap…';
 
-      var endpoints = [
-        'https://overpass-api.de/api/interpreter',
-        'https://overpass.kumi.systems/api/interpreter',
-        'https://overpass.openstreetmap.fr/api/interpreter',
-        'https://overpass.osm.ch/api/interpreter',
-      ];
+        var endpoints = [
+          'https://overpass-api.de/api/interpreter',
+          'https://overpass.kumi.systems/api/interpreter',
+          'https://overpass.openstreetmap.fr/api/interpreter',
+          'https://overpass.osm.ch/api/interpreter'
+        ];
 
-      var overpassData = null;
-      var lastErr = '';
-      for(var i = 0; i < endpoints.length; i++){
-        try {
-          var body = 'data=' + encodeURIComponent(loc.query);
-          var r = await fetch(endpoints[i], {
+        function tryEndpoint(idx, lastErr){
+          if(idx >= endpoints.length){
+            throw new Error('Overpass не отвечает: ' + lastErr);
+          }
+          var url = endpoints[idx];
+          return fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: body,
+            body: 'data=' + encodeURIComponent(loc.query)
+          }).then(function(r){
+            if(!r.ok) return tryEndpoint(idx + 1, 'HTTP ' + r.status);
+            return r.json().then(function(d){
+              if(d.remark) return tryEndpoint(idx + 1, 'remark');
+              if(!d.elements || !d.elements.length) return tryEndpoint(idx + 1, 'empty');
+              return d;
+            }).catch(function(e){
+              return tryEndpoint(idx + 1, e.message);
+            });
+          }).catch(function(e){
+            return tryEndpoint(idx + 1, e.message);
           });
-          if(!r.ok){ lastErr = 'HTTP ' + r.status; continue; }
-          var d = await r.json();
-          if(d.remark){ lastErr = 'remark'; continue; }
-          if(!Array.isArray(d.elements)){ lastErr = 'no elements'; continue; }
-          overpassData = d;
-          break;
-        } catch(e){
-          lastErr = e.message;
         }
-      }
 
-      if(!overpassData) throw new Error('Overpass не отвечает: ' + lastErr);
+        return tryEndpoint(0, '');
+      })
+      .then(function(overpassData){
+        var elements = overpassData.elements || [];
+        var leads = [];
+        var seen = {};
 
-      var elements = overpassData.elements || [];
-      var leads = elements.map(function(el){
-        var t = el.tags || {};
-        var name = t.name || t['name:ru'] || '';
-        if(!name) return null;
-        var lat = el.lat != null ? el.lat : (el.center && el.center.lat);
-        var lon = el.lon != null ? el.lon : (el.center && el.center.lon);
-        var addr = [t['addr:street'], t['addr:housenumber']].filter(Boolean).join(' ');
-        var site = t.website || t['contact:website'] || '';
-        return {
-          id: el.id, name: name,
-          phone: t.phone || t['contact:phone'] || '',
-          email: t.email || t['contact:email'] || '',
-          addr: addr, lat: lat, lon: lon,
-          opening: t.opening_hours || '',
-          hasSite: !!site,
-          type: t.amenity || t.shop || t.office || t.healthcare || t.leisure || t.tourism || '',
-        };
-      }).filter(Boolean);
+        for(var i = 0; i < elements.length; i++){
+          var el = elements[i];
+          var t = el.tags || {};
+          var name = t.name || t['name:ru'] || '';
+          if(!name) continue;
 
-      var noSite = leads.filter(function(l){ return !l.hasSite; });
-      var seen = {};
-      var unique = [];
-      noSite.forEach(function(l){
-        var k = l.name.toLowerCase() + '|' + (l.lat ? l.lat.toFixed(3) : '');
-        if(seen[k]) return;
-        seen[k] = 1;
-        unique.push(l);
+          var site = t.website || t['contact:website'] || '';
+          if(site) continue;
+
+          var lat = (el.lat != null) ? el.lat : (el.center && el.center.lat);
+          var lon = (el.lon != null) ? el.lon : (el.center && el.center.lon);
+          var addr = [t['addr:street'], t['addr:housenumber']].filter(Boolean).join(' ');
+
+          var key = name.toLowerCase() + '|' + (lat ? lat.toFixed(3) : '');
+          if(seen[key]) continue;
+          seen[key] = 1;
+
+          leads.push({
+            id: el.id,
+            name: name,
+            phone: t.phone || t['contact:phone'] || '',
+            email: t.email || t['contact:email'] || '',
+            addr: addr,
+            lat: lat,
+            lon: lon,
+            opening: t.opening_hours || '',
+            type: t.amenity || t.shop || t.office || t.healthcare || t.leisure || t.tourism || ''
+          });
+        }
+
+        var withPhone = 0, withAddr = 0;
+        for(var j = 0; j < leads.length; j++){
+          if(leads[j].phone) withPhone++;
+          if(leads[j].addr) withAddr++;
+        }
+
+        state.leads = leads;
+
+        animateNumber($('s-total'), leads.length);
+        animateNumber($('s-phone'), withPhone);
+        animateNumber($('s-addr'), withAddr);
+        var sc = $('s-city');
+        if(sc) sc.textContent = loc.country ? (loc.city + ', ' + loc.country) : loc.city;
+
+        if(infoEl) infoEl.innerHTML = 'Найдено <b>' + leads.length + '</b> · всего в OSM: <b>' + elements.length + '</b> · с телефоном: <b>' + withPhone + '</b>';
+
+        render();
+      })
+      .catch(function(e){
+        console.error('Search failed:', e);
+        if(infoEl) infoEl.innerHTML = '<span class="err">Ошибка: ' + esc(e.message) + '</span>';
+        var g = $grid();
+        if(g) g.innerHTML = '<div class="empty"><h2>Не вышло</h2><p>' + esc(e.message) + '</p></div>';
+      })
+      .then(function(){
+        if(goBtn) goBtn.disabled = false;
       });
-
-      var withPhone = unique.filter(function(l){ return l.phone; }).length;
-      var withAddr = unique.filter(function(l){ return l.addr; }).length;
-
-      state.leads = unique;
-
-      animateNumber($('s-total'), unique.length);
-      animateNumber($('s-phone'), withPhone);
-      animateNumber($('s-addr'), withAddr);
-      var sc = $('s-city');
-      if(sc) sc.textContent = loc.country ? loc.city + ', ' + loc.country : loc.city;
-
-      if(infoEl) infoEl.innerHTML = 'Найдено <b>' + unique.length + '</b> · всего в OSM: <b>' + elements.length + '</b> · без сайта: <b>' + noSite.length + '</b>';
-
-      render();
-    } catch(e){
-      if(infoEl) infoEl.innerHTML = '<span class="err">Ошибка: ' + esc(e.message) + '</span>';
-      if($grid) $grid.innerHTML = '<div class="empty"><h2>Не вышло</h2><p>' + esc(e.message) + '</p></div>';
-    } finally {
-      if(goBtn) goBtn.disabled = false;
-    }
   }
 
   function exportCSV(){
     if(!state.leads.length){ alert('Нечего экспортировать'); return; }
-    var esc2 = function(v){ return '"' + String(v||'').replace(/"/g,'""') + '"'; };
-    var rows = [['Название','Телефон','Email','Адрес','Тип','Часы работы','Координаты','Карта']];
-    for(var i=0; i<state.leads.length; i++){
+    function q(v){ return '"' + String(v == null ? '' : v).split('"').join('""') + '"'; }
+    var rows = [['Название','Телефон','Email','Адрес','Тип','Часы','Координаты','Карта']];
+    for(var i = 0; i < state.leads.length; i++){
       var l = state.leads[i];
       rows.push([
         l.name, l.phone, l.email, l.addr, l.type, l.opening,
-        l.lat && l.lon ? l.lat + ',' + l.lon : '',
-        l.lat && l.lon ? 'https://yandex.ru/maps/?pt=' + l.lon + ',' + l.lat + '&z=17' : '',
+        (l.lat && l.lon) ? (l.lat + ',' + l.lon) : '',
+        (l.lat && l.lon) ? ('https://yandex.ru/maps/?pt=' + l.lon + ',' + l.lat + '&z=17') : ''
       ]);
     }
-    var csv = '\uFEFF' + rows.map(function(r){ return r.map(esc2).join(','); }).join('\n');
+    var csv = '\uFEFF';
+    for(var r = 0; r < rows.length; r++){
+      var row = [];
+      for(var c = 0; c < rows[r].length; c++){
+        row.push(q(rows[r][c]));
+      }
+      csv += row.join(',') + '\n';
+    }
     var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -760,32 +845,34 @@ window.addEventListener('unhandledrejection', function(e){
     a.click();
   }
 
-  var goBtn = $('go');
-  var csvBtn = $('csv');
-  var cityEl = $('city');
-  var nicheEl = $('niche');
-  var presetsEl = $('presets');
+  function bind(){
+    var goBtn = $('go');
+    var csvBtn = $('csv');
+    var cityEl = $('city');
+    var nicheEl = $('niche');
+    var presetsEl = $('presets');
 
-  if(goBtn) goBtn.addEventListener('click', search);
-  if(csvBtn) csvBtn.addEventListener('click', exportCSV);
-  if(cityEl) cityEl.addEventListener('keydown', function(e){ if(e.key === 'Enter') search(); });
-  if(nicheEl) nicheEl.addEventListener('keydown', function(e){ if(e.key === 'Enter') search(); });
-  if(presetsEl) presetsEl.addEventListener('click', function(e){
-    var el = e.target.closest('.preset');
-    if(!el) return;
-    if(nicheEl) nicheEl.value = el.dataset.v;
-  });
+    if(goBtn) goBtn.addEventListener('click', doSearch);
+    if(csvBtn) csvBtn.addEventListener('click', exportCSV);
+    if(cityEl) cityEl.addEventListener('keydown', function(e){ if(e.key === 'Enter') doSearch(); });
+    if(nicheEl) nicheEl.addEventListener('keydown', function(e){ if(e.key === 'Enter') doSearch(); });
+    if(presetsEl) presetsEl.addEventListener('click', function(e){
+      var el = e.target;
+      while(el && el !== presetsEl){
+        if(el.classList && el.classList.contains('preset')){
+          if(nicheEl) nicheEl.value = el.getAttribute('data-v');
+          return;
+        }
+        el = el.parentNode;
+      }
+    });
+  }
 
+  bind();
   renderPresets();
   preload().then(function(){
     var infoEl = $('info');
     if(infoEl) infoEl.innerHTML = 'Введи город и нишу, нажми «Найти клиентов»';
-  }).catch(function(err){
-    console.error('boot err', err);
-    var pl = $('preloader');
-    var app = $('app');
-    if(pl) pl.classList.add('hide');
-    if(app) app.classList.add('show');
   });
 })();
 </script>
