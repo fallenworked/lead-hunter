@@ -11,3 +11,8 @@ fallthrough = true
 type = "Data"
 globs = ["**/*.png", "**/*.jpg", "**/*.svg", "**/*.webp", "**/*.ico"]
 fallthrough = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "leadhunt-db"
+database_id = "049ec47b-f1d8-45e7-bea5-566e910ecde6"
