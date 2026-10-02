@@ -1,8 +1,12 @@
+import html from './index.html';
+
 export default {
-  async fetch(request, env) {
+  async fetch(request) {
     const url = new URL(request.url);
     if (url.pathname.startsWith('/api/')) return handleLeads(request);
-    return env.ASSETS.fetch(request);
+    return new Response(html, {
+      headers: { 'Content-Type': 'text/html; charset=utf-8' },
+    });
   }
 };
 
@@ -66,12 +70,12 @@ function parseRSS(xml, source) {
   return items.map(m => {
     const b = m[0];
     const pick = (tag) => {
-      const re = new RegExp(`<${tag}[^>]*>(?:<!\\('[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?<\\/${tag}>`, 'i');
+      const re = new RegExp(`<${tag}[^>]*>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?<\\/${tag}>`, 'i');
       const mm = b.match(re);
       return mm ? stripHTML(mm[1]) : '';
     };
     return {
-      title: picktitle'),
+      title: pick('title'),
       link: pick('link'),
       desc: pick('description').slice(0, 400),
       date: pick('pubDate'),
@@ -91,14 +95,14 @@ async function fetchKwork(url, sourceName) {
     cf: { cacheTtl: 300 },
   });
   if (!r.ok) throw new Error(`${url} → ${r.status}`);
-  const html = await r.text();
-  return parseKwork(html, sourceName);
+  const html2 = await r.text();
+  return parseKwork(html2, sourceName);
 }
 
-function parseKwork(html, sourceName) {
+function parseKwork(html2, sourceName) {
   const leads = [];
   const cardRe = /<div[^>]*class="[^"]*wants-card[^"]*"[\s\S]*?(?=<div[^>]*class="[^"]*wants-card|<\/section>|<\/main>|$)/g;
-  const cards = html.match(cardRe) || [];
+  const cards = html2.match(cardRe) || [];
 
   for (const body of cards) {
     const linkM = body.match(/href="(\/projects\/[^"?#]+)/);
