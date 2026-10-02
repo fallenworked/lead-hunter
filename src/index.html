@@ -32,7 +32,6 @@
     background:var(--bg);color:var(--text);
     font-size:14px;line-height:1.55;
     -webkit-font-smoothing:antialiased;
-    text-rendering:optimizeLegibility;
     min-height:100vh;overflow-x:hidden;
   }
   body::before{
@@ -46,7 +45,6 @@
   button,input,select{font-family:inherit}
   ::selection{background:rgba(77,159,255,.3)}
 
-  /* ═══ PRELOADER ═══ */
   .preloader{
     position:fixed;inset:0;z-index:9999;
     background:var(--bg);
@@ -100,7 +98,6 @@
     text-transform:uppercase;min-height:14px;font-weight:600;
   }
 
-  /* ═══ APP ═══ */
   .app{
     opacity:0;transition:opacity .8s ease;
     max-width:1320px;margin:0 auto;
@@ -391,10 +388,10 @@
 
   @media(max-width:640px){
     .app{padding:14px 14px 40px}
-    .gridAD{grid-template-columns:1fr}
- H   UN .stat-value{font-size:22px}
-TER    .btn{width:100%}
-   </ .spanfield{min-width:0}
+    .grid{grid-template-columns:1fr}
+    .stat-value{font-size:22px}
+    .btn{width:100%}
+    .field{min-width:0}
     .nav{gap:16px}
     .nav-brand{font-size:14px;letter-spacing:.14em}
     .nav-brand img{width:32px;height:32px}
@@ -418,7 +415,7 @@ TER    .btn{width:100%}
   <nav class="nav">
     <div class="nav-brand">
       <img src="/logo.png" alt="Lead Hunter">
-      <span>LE>
+      <span>LEAD HUNTER</span>
     </div>
     <div class="nav-menu">
       <a class="active">Поиск</a>
@@ -490,7 +487,6 @@ TER    .btn{width:100%}
 </div>
 
 <script>
-// Глобальный перехватчик ошибок - если что-то упадёт, всё равно покажем сайт
 window.addEventListener('error', function(e){
   console.error('JS error:', e.message);
   var pl = document.getElementById('preloader');
@@ -514,7 +510,6 @@ window.addEventListener('unhandledrejection', function(e){
 
   const PRESETS = ['стоматология','кафе','парикмахерская','автосервис','аптека','салон красоты','фитнес','юрист','пекарня','оптика','цветы','мебель','кофейня','ветклиника'];
 
-  // ═══ PRELOADER - гарантированно завершается ═══
   function preload(){
     return new Promise(function(resolve){
       var pl = $('preloader');
@@ -529,7 +524,6 @@ window.addEventListener('unhandledrejection', function(e){
         setTimeout(resolve, 400);
       }
 
-      // Аварийный таймаут - максимум 4 секунды
       var safety = setTimeout(finish, 4000);
 
       if(!bar || !pct || !status){
@@ -571,7 +565,6 @@ window.addEventListener('unhandledrejection', function(e){
     });
   }
 
-  // ═══ UI ═══
   function renderPresets(){
     var el = $('presets');
     if(!el) return;
@@ -703,7 +696,6 @@ window.addEventListener('unhandledrejection', function(e){
     a.click();
   }
 
-  // Bind events
   var goBtn = $('go');
   var csvBtn = $('csv');
   var cityEl = $('city');
@@ -718,18 +710,18 @@ window.addEventListener('unhandledrejection', function(e){
     var el = e.target.closest('.preset');
     if(!el) return;
     if(nicheEl) nicheEl.value = el.dataset.v;
-    search();
   });
 
-  // Запуск
   renderPresets();
-  preload().then(search).catch(function(err){
+  preload().then(function(){
+    var infoEl = $('info');
+    if(infoEl) infoEl.innerHTML = 'Введи город и нишу, нажми «Найти клиентов»';
+  }).catch(function(err){
     console.error('boot err', err);
     var pl = $('preloader');
     var app = $('app');
     if(pl) pl.classList.add('hide');
     if(app) app.classList.add('show');
-    search();
   });
 })();
 </script>
