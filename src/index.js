@@ -163,8 +163,6 @@ const OVERPASS = [
   'https://overpass.osm.ch/api/interpreter',
 ];
 
-const UA = 'LeadHunter/1.0';
-
 function withTimeout(promise, ms) {
   return Promise.race([
     promise,
@@ -183,7 +181,7 @@ async function geocode(city) {
     return { ...info, display: info.n };
   }
   const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(city)}&limit=1&lang=ru`;
-  const r = await withTimeout(fetch(url, { headers: { 'User-Agent': UA } }), 6000);
+  const r = await withTimeout(fetch(url, { headers: { 'User-Agent': 'LeadHunter/1.0' } }), 6000);
   if (!r.ok) throw new Error('город не найден');
   const data = await r.json();
   if (!data.features || !data.features.length) throw new Error('город не найден');
@@ -198,24 +196,34 @@ async function geocode(city) {
   };
 }
 
+// BBOX: [south, west, north, east]
+function buildBbox(city) {
+  const r = Math.min(city.r, 8000);
+  const dLat = r / 111000;
+  const dLon = r / (111000 * Math.cos(city.lat * Math.PI / 180));
+  return [
+    (city.lat - dLat).toFixed(5),
+    (city.lon - dLon).toFixed(5),
+    (city.lat + dLat).toFixed(5),
+    (city.lon + dLon).toFixed(5),
+  ];
+}
+
 function buildOverpassQuery(city, niche) {
-  const around = `around:${Math.min(city.r, 8000)},${city.lat},${city.lon}`;
+  const bbox = buildBbox(city).join(',');
   const tags = NICHES[niche.toLowerCase().trim()];
-  const limit = 120;
+  const limit = 150;
 
   if (!tags) {
-    return `[out:json][timeout:15];
-node["name"~"${niche}","i"](${around});
-out center ${limit};`;
+    return `[out:json][timeout:25];node["name"~"${niche}","i"](${bbox});out center ${limit};`;
   }
 
   let parts = '';
   for (const [k, v] of tags) {
-    parts += `node["${k}"="${v}"](${around});`;
+    parts += `node["${k}"="${v}"](${bbox});`;
+    parts += `way["${k}"="${v}"](${bbox});`;
   }
-  return `[out:json][timeout:15];
-(${parts});
-out center ${limit};`;
+  return `[out:json][timeout:25];(${parts});out center ${limit};`;
 }
 
 async function overpass(query) {
@@ -225,22 +233,29 @@ async function overpass(query) {
     'User-Agent': ua,
     'Content-Type': 'application/x-www-form-urlencoded',
     'Accept': 'application/json',
-    'Accept-Language': 'en-US,en;q=0.9',
   };
 
   const attempt = async (endpoint) => {
-    const r = await withTimeout(fetch(endpoint, { method: 'POST', headers, body }), 16000);
+    const r = await withTimeout(fetch(endpoint, { method: 'POST', headers, body }), 20000);
     if (!r.ok) throw new Error(String(r.status));
-    const d = await r.json();
-    return d.elements || [];
+    const text = await r.text();
+    if (!text || !text.trim()) throw new Error('empty body');
+    let d;
+    try { d = JSON.parse(text); }
+    catch (e) { throw new Error('bad json: ' + text.slice(0, 80)); }
+    if (d.remark) throw new Error('remark: ' + d.remark);
+    if (!Array.isArray(d.elements)) throw new Error('no elements: ' + text.slice(0, 100));
+    return { elements: d.elements, endpoint };
   };
 
+  // раунд 1
   let results = await Promise.allSettled(OVERPASS.map(attempt));
   for (const r of results) {
     if (r.status === 'fulfilled') return r.value;
   }
 
-  await new Promise(res => setTimeout(res, 1800));
+  // раунд 2
+  await new Promise(res => setTimeout(res, 1500));
   results = await Promise.allSettled(OVERPASS.map(attempt));
   const errors = [];
   for (let i = 0; i < results.length; i++) {
@@ -290,18 +305,22 @@ async function handleSearch(request) {
   try {
     const cityInfo = await geocode(city);
     debug.geocode_ms = Date.now() - t0;
+    debug.bbox = buildBbox(cityInfo);
 
     const q = buildOverpassQuery(cityInfo, niche);
+    debug.query = q;
 
     const t1 = Date.now();
-    let elements = [];
+    let overResult;
     try {
-      elements = await overpass(q);
+      overResult = await overpass(q);
     } catch (err) {
       debug.overpass_error = err.message;
       throw err;
     }
+    const elements = overResult.elements;
     debug.overpass_ms = Date.now() - t1;
+    debug.endpoint = overResult.endpoint.replace('https://','').split('/')[0];
     debug.raw = elements.length;
 
     const leads = elements.map(extract).filter(Boolean);
