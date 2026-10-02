@@ -6,3 +6,8 @@ compatibility_date = "2026-10-01"
 type = "Text"
 globs = ["**/*.html"]
 fallthrough = true
+
+[[rules]]
+type = "Data"
+globs = ["**/*.png", "**/*.jpg", "**/*.svg", "**/*.webp", "**/*.ico"]
+fallthrough = true
