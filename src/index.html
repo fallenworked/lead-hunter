@@ -501,7 +501,6 @@ window.addEventListener('unhandledrejection', function(e){
 (function(){
   'use strict';
 
-  const API = '/api/search';
   const state = { leads: [], city: '', niche: '' };
 
   const $ = id => document.getElementById(id);
@@ -593,14 +592,6 @@ window.addEventListener('unhandledrejection', function(e){
     requestAnimationFrame(tick);
   }
 
-  function renderStats(data){
-    animateNumber($('s-total'), data.count || 0);
-    animateNumber($('s-phone'), data.withPhone || 0);
-    animateNumber($('s-addr'), data.withAddr || 0);
-    var sc = $('s-city');
-    if(sc) sc.textContent = data.country && data.city ? data.city + ', ' + data.country : (data.city || '-');
-  }
-
   function render(){
     if(!$grid) return;
     var leads = state.leads;
@@ -661,12 +652,85 @@ window.addEventListener('unhandledrejection', function(e){
     if(infoEl) infoEl.innerHTML = 'Ищу <b>«' + esc(niche) + '»</b> в <b>' + esc(city) + '</b>…';
 
     try {
-      var r = await fetch(API + '?city=' + encodeURIComponent(city) + '&niche=' + encodeURIComponent(niche) + '&_=' + Date.now());
-      var data = await r.json();
-      if(data.error) throw new Error(data.error);
-      state.leads = data.leads || [];
-      renderStats(data);
-      if(infoEl) infoEl.innerHTML = 'Найдено <b>' + data.count + '</b> клиентов · <b>' + data.withPhone + '</b> с телефоном · ' + esc(data.city || city) + ' · обновлено ' + new Date(data.updated).toLocaleTimeString('ru');
+      var locRes = await fetch('/api/locate?city=' + encodeURIComponent(city) + '&niche=' + encodeURIComponent(niche));
+      var loc = await locRes.json();
+      if(loc.error) throw new Error(loc.error);
+
+      if(infoEl) infoEl.innerHTML = 'Опрашиваю OpenStreetMap…';
+
+      var endpoints = [
+        'https://overpass-api.de/api/interpreter',
+        'https://overpass.kumi.systems/api/interpreter',
+        'https://overpass.openstreetmap.fr/api/interpreter',
+        'https://overpass.osm.ch/api/interpreter',
+      ];
+
+      var overpassData = null;
+      var lastErr = '';
+      for(var i = 0; i < endpoints.length; i++){
+        try {
+          var body = 'data=' + encodeURIComponent(loc.query);
+          var r = await fetch(endpoints[i], {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: body,
+          });
+          if(!r.ok){ lastErr = 'HTTP ' + r.status; continue; }
+          var d = await r.json();
+          if(d.remark){ lastErr = 'remark'; continue; }
+          if(!Array.isArray(d.elements)){ lastErr = 'no elements'; continue; }
+          overpassData = d;
+          break;
+        } catch(e){
+          lastErr = e.message;
+        }
+      }
+
+      if(!overpassData) throw new Error('Overpass не отвечает: ' + lastErr);
+
+      var elements = overpassData.elements || [];
+      var leads = elements.map(function(el){
+        var t = el.tags || {};
+        var name = t.name || t['name:ru'] || '';
+        if(!name) return null;
+        var lat = el.lat != null ? el.lat : (el.center && el.center.lat);
+        var lon = el.lon != null ? el.lon : (el.center && el.center.lon);
+        var addr = [t['addr:street'], t['addr:housenumber']].filter(Boolean).join(' ');
+        var site = t.website || t['contact:website'] || '';
+        return {
+          id: el.id, name: name,
+          phone: t.phone || t['contact:phone'] || '',
+          email: t.email || t['contact:email'] || '',
+          addr: addr, lat: lat, lon: lon,
+          opening: t.opening_hours || '',
+          hasSite: !!site,
+          type: t.amenity || t.shop || t.office || t.healthcare || t.leisure || t.tourism || '',
+        };
+      }).filter(Boolean);
+
+      var noSite = leads.filter(function(l){ return !l.hasSite; });
+      var seen = {};
+      var unique = [];
+      noSite.forEach(function(l){
+        var k = l.name.toLowerCase() + '|' + (l.lat ? l.lat.toFixed(3) : '');
+        if(seen[k]) return;
+        seen[k] = 1;
+        unique.push(l);
+      });
+
+      var withPhone = unique.filter(function(l){ return l.phone; }).length;
+      var withAddr = unique.filter(function(l){ return l.addr; }).length;
+
+      state.leads = unique;
+
+      animateNumber($('s-total'), unique.length);
+      animateNumber($('s-phone'), withPhone);
+      animateNumber($('s-addr'), withAddr);
+      var sc = $('s-city');
+      if(sc) sc.textContent = loc.country ? loc.city + ', ' + loc.country : loc.city;
+
+      if(infoEl) infoEl.innerHTML = 'Найдено <b>' + unique.length + '</b> · всего в OSM: <b>' + elements.length + '</b> · без сайта: <b>' + noSite.length + '</b>';
+
       render();
     } catch(e){
       if(infoEl) infoEl.innerHTML = '<span class="err">Ошибка: ' + esc(e.message) + '</span>';
