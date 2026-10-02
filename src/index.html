@@ -45,7 +45,6 @@ button,input{font-family:inherit}
 .burger.open span:nth-child(1){transform:translateY(7px) rotate(45deg)}
 .burger.open span:nth-child(2){opacity:0}
 .burger.open span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
-
 .drawer{position:fixed;inset:0;z-index:9000;pointer-events:none}
 .drawer.show{pointer-events:auto}
 .drawer-bg{position:absolute;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);opacity:0;transition:opacity .3s}
@@ -75,7 +74,6 @@ button,input{font-family:inherit}
 .drawer-item .right{margin-left:auto;font-size:11px;color:var(--muted);transition:transform .2s}
 .drawer-item:hover .right{transform:translateX(3px);color:var(--silver)}
 .drawer-foot{padding:16px 22px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);text-align:center}
-
 .hero{margin-bottom:32px}
 .hero h1{font-size:clamp(28px,4.2vw,46px);font-weight:900;letter-spacing:-.035em;line-height:1.08;margin-bottom:12px}
 .hero h1 .grad{background:linear-gradient(135deg,#fff 15%,var(--silver) 55%,var(--silver-2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
@@ -155,23 +153,22 @@ footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);displ
 .notice{padding:12px 16px;background:rgba(224,164,74,.08);border:1px solid rgba(224,164,74,.2);border-radius:10px;font-size:13px;color:var(--warm);margin-bottom:16px;display:flex;align-items:center;gap:10px;grid-column:1/-1}
 .notice a{color:var(--silver);font-weight:700;text-decoration:underline;cursor:pointer}
 
-/* ═══ PLANS MODAL ═══ */
-.plans{position:fixed;inset:0;z-index:10001;display:none;align-items:center;justify-content:center;padding:20px;overflow-y:auto}
+.plans{position:fixed;top:0;left:0;right:0;bottom:0;z-index:10001;display:none;align-items:center;justify-content:center;padding:20px;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .plans.show{display:flex}
 .plans-bg{position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(10px);animation:fadeIn .3s}
 @keyframes fadeIn{from{opacity:0}}
-.plans-body{position:relative;width:100%;max-width:960px;background:linear-gradient(180deg,#0c0e13,#080a0f);border:1px solid var(--border-2);border-radius:20px;padding:40px 36px 32px;box-shadow:0 60px 140px rgba(0,0,0,.8);margin:auto;animation:plansIn .4s cubic-bezier(.16,1,.3,1)}
+.plans-body{position:relative;width:100%;max-width:960px;background:linear-gradient(180deg,#0c0e13,#080a0f);border:1px solid var(--border-2);border-radius:20px;padding:40px 36px 32px;box-shadow:0 60px 140px rgba(0,0,0,.8);animation:plansIn .4s cubic-bezier(.16,1,.3,1)}
 @keyframes plansIn{from{opacity:0;transform:translateY(24px) scale(.96)}}
-.plans-close{position:absolute;top:16px;right:16px;background:rgba(255,255,255,.03);border:1px solid var(--border-2);color:var(--muted);width:36px;height:36px;border-radius:9px;font-size:22px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.plans-close{position:absolute;top:16px;right:16px;background:rgba(255,255,255,.03);border:1px solid var(--border-2);color:var(--muted);width:36px;height:36px;border-radius:9px;font-size:22px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;transition:all .2s;z-index:10}
 .plans-close:hover{color:var(--text);border-color:var(--hot);background:rgba(224,74,95,.08);transform:rotate(90deg)}
 .plans-head{text-align:center;margin-bottom:28px}
 .plans-head h2{font-size:clamp(24px,3vw,34px);font-weight:900;letter-spacing:-.03em;margin-bottom:8px;background:linear-gradient(135deg,#fff,var(--silver-2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .plans-head p{font-size:14.5px;color:var(--text-dim);max-width:520px;margin:0 auto}
 .plans-toggle{display:flex;justify-content:center;margin-bottom:32px}
 .plans-toggle-inner{display:inline-flex;background:var(--panel-2);border:1px solid var(--border-2);border-radius:12px;padding:4px;position:relative}
-.plans-toggle-btn{padding:9px 22px;font-size:13.5px;font-weight:700;color:var(--text-dim);cursor:pointer;border:0;background:transparent;border-radius:9px;transition:all .25s;position:relative;z-index:2;font-family:inherit}
+.plans-toggle-btn{padding:9px 22px;font-size:13.5px;font-weight:700;color:var(--text-dim);cursor:pointer;border:0;background:transparent;border-radius:9px;transition:color .25s;position:relative;z-index:2;font-family:inherit}
 .plans-toggle-btn.active{color:#050608}
-.plans-toggle-slider{position:absolute;top:4px;bottom:4px;background:linear-gradient(135deg,var(--silver),#fff);border-radius:9px;transition:all .3s cubic-bezier(.4,0,.2,1);z-index:1;box-shadow:0 2px 12px rgba(201,205,214,.3)}
+.plans-toggle-slider{position:absolute;top:4px;bottom:4px;background:linear-gradient(135deg,var(--silver),#fff);border-radius:9px;transition:all .3s cubic-bezier(.4,0,.2,1);z-index:1;box-shadow:0 2px 12px rgba(201,205,214,.3);left:4px;width:0}
 .plans-toggle-badge{display:inline-block;margin-left:6px;font-size:10px;font-weight:800;padding:2px 6px;background:rgba(34,197,139,.2);color:var(--ok);border-radius:4px}
 .plans-toggle-btn.active .plans-toggle-badge{background:rgba(34,197,139,.25);color:#0a3d29}
 .plans-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:32px}
@@ -181,15 +178,14 @@ footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);displ
 .plan-card.pro::before{content:"";position:absolute;inset:0;border-radius:16px;padding:1px;background:linear-gradient(135deg,var(--silver),transparent 30%,transparent 70%,var(--silver-2));-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none;opacity:.6}
 .plan-card.pro::after{content:"";position:absolute;top:-50%;right:-50%;width:200%;height:200%;background:conic-gradient(from 0deg,transparent,rgba(201,205,214,.15),transparent 30%);animation:rotate 8s linear infinite;pointer-events:none;opacity:.5}
 @keyframes rotate{to{transform:rotate(360deg)}}
-.plan-card.pro>.plan-content{position:relative;z-index:1}
-.plan-card:not(.pro)>.plan-content{position:relative;z-index:1}
+.plan-card>.plan-content{position:relative;z-index:1}
 .plan-name{display:flex;align-items:center;gap:10px;margin-bottom:6px}
 .plan-name h3{font-size:20px;font-weight:900;letter-spacing:-.02em}
 .plan-name .tag{font-size:10px;font-weight:800;padding:3px 8px;border-radius:5px;letter-spacing:.06em}
 .plan-name .tag.free{background:rgba(139,146,163,.15);color:var(--text-dim)}
 .plan-name .tag.pro{background:linear-gradient(135deg,var(--silver),#fff);color:#050608}
 .plan-desc{font-size:13px;color:var(--text-dim);margin-bottom:20px;min-height:38px}
-.plan-price{display:flex;align-items:baseline;gap:8px;margin-bottom:6px;min-height:52px}
+.plan-price{display:flex;align-items:baseline;gap:8px;margin-bottom:6px;min-height:52px;flex-wrap:wrap}
 .plan-price .amount{font-size:40px;font-weight:900;letter-spacing:-.04em;line-height:1;background:linear-gradient(135deg,#fff,var(--silver-2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;transition:all .3s}
 .plan-card:not(.pro) .plan-price .amount{font-size:32px}
 .plan-price .period{font-size:14px;color:var(--text-dim);font-weight:500}
@@ -207,7 +203,6 @@ footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);displ
 .plan-cta.free{background:transparent;border-color:var(--border-2);color:var(--text-dim);cursor:default}
 .plan-cta.pro{background:linear-gradient(135deg,var(--silver),#fff 50%,var(--silver));color:#050608;box-shadow:0 8px 32px rgba(201,205,214,.3)}
 .plan-cta.pro:hover{transform:translateY(-2px);box-shadow:0 12px 40px rgba(201,205,214,.5)}
-
 .plans-compare{background:rgba(255,255,255,.015);border:1px solid var(--border);border-radius:14px;padding:22px 24px;margin-bottom:24px}
 .plans-compare h4{font-size:15px;font-weight:800;margin-bottom:16px;color:var(--silver)}
 .plans-compare table{width:100%;border-collapse:collapse;font-size:13.5px}
@@ -222,22 +217,19 @@ footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);displ
 .plans-compare th{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);padding-bottom:12px;text-align:center;width:80px}
 .plans-compare th:first-child{text-align:left;width:auto}
 .plans-compare th.pro{color:var(--silver)}
-
 .plans-faq{margin-bottom:20px}
 .plans-faq h4{font-size:15px;font-weight:800;margin-bottom:14px;color:var(--silver)}
 .faq-item{border:1px solid var(--border);border-radius:12px;margin-bottom:8px;background:var(--panel-2);overflow:hidden;transition:all .25s}
 .faq-item.open{border-color:var(--border-2);background:var(--panel)}
 .faq-q{padding:14px 18px;font-size:13.5px;font-weight:600;color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:12px;user-select:none;transition:color .2s}
 .faq-q:hover{color:var(--silver)}
-.faq-q .arrow{width:16px;height:16px;flex-shrink:0;transition:transform .3s;color:var(--muted);transform:rotate(0deg)}
+.faq-q .arrow{width:16px;height:16px;flex-shrink:0;transition:transform .3s;color:var(--muted)}
 .faq-item.open .faq-q .arrow{transform:rotate(180deg);color:var(--silver)}
 .faq-a{max-height:0;overflow:hidden;transition:max-height .35s cubic-bezier(.4,0,.2,1),padding .35s}
 .faq-item.open .faq-a{max-height:300px;padding:0 18px 14px}
 .faq-a p{font-size:13px;color:var(--text-dim);line-height:1.6}
-
 .plans-foot{text-align:center;font-size:12.5px;color:var(--muted);padding-top:16px;border-top:1px solid var(--border)}
 .plans-foot b{color:var(--silver)}
-
 @media(max-width:720px){
   .plans-body{padding:28px 20px 24px;border-radius:16px}
   .plans-grid{grid-template-columns:1fr;gap:14px}
@@ -290,33 +282,27 @@ footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);displ
   <div class="plans-bg" id="plansBg"></div>
   <div class="plans-body">
     <button class="plans-close" id="plansClose">×</button>
-
     <div class="plans-head">
       <h2>Выбери свой тариф</h2>
       <p>Бесплатно попробуй, подписка - для системной работы. Отмена в любой момент.</p>
     </div>
-
     <div class="plans-toggle">
       <div class="plans-toggle-inner" id="plansToggle">
         <div class="plans-toggle-slider" id="plansSlider"></div>
-        <button class="plans-toggle-btn active" data-period="month">Месяц</button>
-        <button class="plans-toggle-btn" data-period="year">Год<span class="plans-toggle-badge">-65%</span></button>
+        <button type="button" class="plans-toggle-btn active" data-period="month">Месяц</button>
+        <button type="button" class="plans-toggle-btn" data-period="year">Год<span class="plans-toggle-badge">-65%</span></button>
       </div>
     </div>
-
     <div class="plans-grid">
       <div class="plan-card" style="animation-delay:80ms">
         <div class="plan-content">
-          <div class="plan-name">
-            <h3>FREE</h3>
-            <span class="tag free">СТАРТ</span>
-          </div>
+          <div class="plan-name"><h3>FREE</h3><span class="tag free">СТАРТ</span></div>
           <div class="plan-desc">Попробовать сервис и оценить качество базы</div>
           <div class="plan-price">
             <span class="amount">0<span style="font-size:20px;color:var(--text-dim);margin-left:2px">₽</span></span>
             <span class="period">навсегда</span>
           </div>
-          <div class="plan-save">Без карты и обязательств</div>
+          <div class="plan-save" style="color:var(--text-dim)">Без карты и обязательств</div>
           <ul class="plan-features">
             <li class="on"><svg class="ic ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg><span><span class="hi">3 поиска</span> в день</span></li>
             <li class="on"><svg class="ic ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg><span><span class="hi">10 результатов</span> на поиск</span></li>
@@ -325,23 +311,19 @@ footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);displ
             <li class="off"><svg class="ic no" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 6l12 12M18 6L6 18"/></svg><span>CSV-экспорт</span></li>
             <li class="off"><svg class="ic no" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 6l12 12M18 6L6 18"/></svg><span>История поисков</span></li>
           </ul>
-          <button class="plan-cta free" disabled>Текущий тариф</button>
+          <button type="button" class="plan-cta free" disabled>Текущий тариф</button>
         </div>
       </div>
-
       <div class="plan-card pro" style="animation-delay:160ms">
         <div class="plan-content">
-          <div class="plan-name">
-            <h3>PRO</h3>
-            <span class="tag pro">BEST</span>
-          </div>
+          <div class="plan-name"><h3>PRO</h3><span class="tag pro">BEST</span></div>
           <div class="plan-desc">Для агентств, фрилансеров и отделов продаж</div>
           <div class="plan-price">
             <span class="amount" id="proAmount">199<span style="font-size:20px;color:var(--text-dim);margin-left:2px">₽</span></span>
             <span class="period" id="proPeriod">в месяц</span>
             <span class="old" id="proOld" style="display:none">2388₽</span>
           </div>
-          <div class="plan-save" id="proSave">Отмена в любой момент</div>
+          <div class="plan-save" id="proSave" style="color:var(--text-dim)">Отмена в любой момент</div>
           <ul class="plan-features">
             <li class="on"><svg class="ic ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg><span><span class="hi">Безлимит</span> поисков</span></li>
             <li class="on"><svg class="ic ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg><span><span class="hi">Все результаты</span> без ограничений</span></li>
@@ -350,17 +332,14 @@ footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);displ
             <li class="on"><svg class="ic ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg><span>Избранное и теги</span></li>
             <li class="on"><svg class="ic ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg><span>Приоритетная поддержка</span></li>
           </ul>
-          <button class="plan-cta pro" id="proCta">Оформить PRO</button>
+          <button type="button" class="plan-cta pro" id="proCta">Оформить PRO</button>
         </div>
       </div>
     </div>
-
     <div class="plans-compare">
       <h4>Сравнение</h4>
       <table>
-        <thead>
-          <tr><th></th><th>FREE</th><th class="pro">PRO</th></tr>
-        </thead>
+        <thead><tr><th></th><th>FREE</th><th class="pro">PRO</th></tr></thead>
         <tbody>
           <tr><td>Поисков в день</td><td class="val">3</td><td class="val">∞</td></tr>
           <tr><td>Результатов на поиск</td><td class="val">10</td><td class="val">все</td></tr>
@@ -372,7 +351,6 @@ footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);displ
         </tbody>
       </table>
     </div>
-
     <div class="plans-faq">
       <h4>Частые вопросы</h4>
       <div class="faq-item">
@@ -396,7 +374,6 @@ footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);displ
         <div class="faq-a"><p>Да, в любой момент. При отмене PRO текущий оплаченный период остаётся активным до конца, потом автоматически возвращается FREE.</p></div>
       </div>
     </div>
-
     <div class="plans-foot">Платежи <b>скоро</b>. Пока хочешь PRO - напиши в поддержку.</div>
   </div>
 </div>
@@ -459,22 +436,10 @@ footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);displ
   </div>
 
   <div class="stats">
-    <div class="stat">
-      <div class="stat-label">Клиентов найдено</div>
-      <div class="stat-value" id="s-total">0</div>
-    </div>
-    <div class="stat ok">
-      <div class="stat-label">С телефоном</div>
-      <div class="stat-value" id="s-phone">0</div>
-    </div>
-    <div class="stat warm">
-      <div class="stat-label">С адресом</div>
-      <div class="stat-value" id="s-addr">0</div>
-    </div>
-    <div class="stat accent">
-      <div class="stat-label">Локация</div>
-      <div class="stat-value sm" id="s-city">-</div>
-    </div>
+    <div class="stat"><div class="stat-label">Клиентов найдено</div><div class="stat-value" id="s-total">0</div></div>
+    <div class="stat ok"><div class="stat-label">С телефоном</div><div class="stat-value" id="s-phone">0</div></div>
+    <div class="stat warm"><div class="stat-label">С адресом</div><div class="stat-value" id="s-addr">0</div></div>
+    <div class="stat accent"><div class="stat-label">Локация</div><div class="stat-value sm" id="s-city">-</div></div>
   </div>
 
   <div class="actionbar">
@@ -746,23 +711,31 @@ footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);displ
   }
 
   var plansPeriod = 'month';
+
   function openPlans(){
     closeDrawer();
-    var pm = $('plansModal');
-    if(!pm) return;
-    pm.classList.add('show');
-    updatePlansToggle();
-    setTimeout(updatePlansSlider, 50);
+    setTimeout(function(){
+      var pm = $('plansModal');
+      if(!pm){ console.error('plansModal not found'); return; }
+      pm.classList.add('show');
+      try {
+        updatePlansToggle();
+        setTimeout(function(){
+          try { updatePlansSlider(); } catch(e){ console.error(e); }
+        }, 120);
+      } catch(e){ console.error('plans init err', e); }
+    }, 280);
   }
+
   function closePlans(){
     var pm = $('plansModal');
     if(pm) pm.classList.remove('show');
   }
+
   function updatePlansToggle(){
     var btns = document.querySelectorAll('.plans-toggle-btn');
     for(var i = 0; i < btns.length; i++){
-      var isActive = btns[i].getAttribute('data-period') === plansPeriod;
-      if(isActive) btns[i].classList.add('active');
+      if(btns[i].getAttribute('data-period') === plansPeriod) btns[i].classList.add('active');
       else btns[i].classList.remove('active');
     }
     var amount = $('proAmount'), period = $('proPeriod'), old = $('proOld'), save = $('proSave');
@@ -779,6 +752,7 @@ footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);displ
       if(save){ save.textContent = 'Экономия 1189₽ (65%)'; save.style.color = 'var(--ok)'; }
     }
   }
+
   function updatePlansSlider(){
     var inner = $('plansToggle'), slider = $('plansSlider');
     if(!inner || !slider) return;
@@ -797,6 +771,7 @@ footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);displ
     d.classList.add('show');
     if(b) b.classList.add('open');
   }
+
   function closeDrawer(){
     var d = $('drawer'), b = $('burger');
     if(d) d.classList.remove('show');
@@ -857,7 +832,7 @@ footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);displ
       '<h2>Лимит бесплатных поисков исчерпан</h2>' +
       '<p>Ты использовал все ' + state.limit + ' поиска на сегодня.</p>' +
       '<p style="margin-top:8px">Подписка открывает безлимитный доступ и CSV-экспорт.</p>' +
-      '<button class="cta" id="openPro">Оформить подписку - 199₽/мес</button></div>';
+      '<button type="button" class="cta" id="openPro">Оформить подписку - 199₽/мес</button></div>';
     var btn = $('openPro');
     if(btn) btn.addEventListener('click', openPlans);
   }
@@ -1002,14 +977,14 @@ footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);displ
   }
 
   function handleDrawerAction(action){
-    if(action === 'login'){ closeDrawer(); setTimeout(function(){ openAuth('login'); }, 200); }
-    else if(action === 'logout'){ logout(); }
-    else if(action === 'plans'){ openPlans(); }
-    else if(action === 'profile'){ closeDrawer(); alert('Профиль: ' + (state.user ? state.user.email : '') + '\nРаздел в разработке.'); }
-    else if(action === 'history'){ closeDrawer(); alert('История поиска в разработке.'); }
-    else if(action === 'settings'){ closeDrawer(); alert('Настройки в разработке.'); }
-    else if(action === 'support'){ closeDrawer(); alert('Поддержка: напиши в Telegram-канал сервиса.'); }
-    else if(action === 'about'){ closeDrawer(); alert('Lead Hunter - поиск бизнесов без сайта.\nДанные OpenStreetMap.\nВерсия 1.0'); }
+    if(action === 'login'){ closeDrawer(); setTimeout(function(){ openAuth('login'); }, 250); return; }
+    if(action === 'logout'){ logout(); return; }
+    if(action === 'plans'){ openPlans(); return; }
+    if(action === 'profile'){ closeDrawer(); setTimeout(function(){ alert('Профиль: ' + (state.user ? state.user.email : '') + '\nРаздел в разработке.'); }, 250); return; }
+    if(action === 'history'){ closeDrawer(); setTimeout(function(){ alert('История поиска в разработке.'); }, 250); return; }
+    if(action === 'settings'){ closeDrawer(); setTimeout(function(){ alert('Настройки в разработке.'); }, 250); return; }
+    if(action === 'support'){ closeDrawer(); setTimeout(function(){ alert('Поддержка: напиши в Telegram-канал сервиса.'); }, 250); return; }
+    if(action === 'about'){ closeDrawer(); setTimeout(function(){ alert('Lead Hunter - поиск бизнесов без сайта.\nДанные OpenStreetMap.\nВерсия 1.0'); }, 250); return; }
   }
 
   function bind(){
@@ -1065,13 +1040,11 @@ footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);displ
     if(plansBg) plansBg.addEventListener('click', closePlans);
     if(plansClose) plansClose.addEventListener('click', closePlans);
     if(plansToggle) plansToggle.addEventListener('click', function(e){
-      var btn = e.target.closest ? e.target.closest('.plans-toggle-btn') : null;
-      if(!btn){
-        var el = e.target;
-        while(el && el !== plansToggle){
-          if(el.classList && el.classList.contains('plans-toggle-btn')){ btn = el; break; }
-          el = el.parentNode;
-        }
+      var btn = null;
+      var el = e.target;
+      while(el && el !== plansToggle){
+        if(el.classList && el.classList.contains('plans-toggle-btn')){ btn = el; break; }
+        el = el.parentNode;
       }
       if(!btn) return;
       plansPeriod = btn.getAttribute('data-period');
@@ -1082,7 +1055,6 @@ footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);displ
       alert('Скоро подключим оплату.\nТариф: ' + (plansPeriod === 'year' ? '1199₽/год' : '199₽/мес') + '\n\nПока напиши в поддержку - активируем вручную.');
     });
 
-    // FAQ accordion
     var faqItems = document.querySelectorAll('.faq-item');
     for(var i = 0; i < faqItems.length; i++){
       (function(item){
@@ -1095,11 +1067,8 @@ footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);displ
       })(faqItems[i]);
     }
 
-    // ESC closes overlays
     document.addEventListener('keydown', function(e){
-      if(e.key === 'Escape'){
-        closeAuth(); closePlans(); closeDrawer();
-      }
+      if(e.key === 'Escape'){ closeAuth(); closePlans(); closeDrawer(); }
     });
 
     window.addEventListener('resize', updatePlansSlider);
