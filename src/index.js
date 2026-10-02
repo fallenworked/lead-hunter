@@ -2,9 +2,15 @@ import html from './index.html';
 import logo from './logo.png';
 
 export default {
-  async fetch(request) {
+  async fetch(request, env) {
     const url = new URL(request.url);
-    if (url.pathname === '/api/locate') return handleLocate(request);
+
+    if (url.pathname === '/api/auth/register') return handleRegister(request, env);
+    if (url.pathname === '/api/auth/login') return handleLogin(request, env);
+    if (url.pathname === '/api/auth/logout') return handleLogout(request, env);
+    if (url.pathname === '/api/auth/me') return handleMe(request, env);
+    if (url.pathname === '/api/locate') return handleLocate(request, env);
+
     if (url.pathname === '/logo.png') {
       return new Response(logo, {
         headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' },
@@ -97,10 +103,10 @@ const CITIES = {
   'пенза': { lat: 53.2007, lon: 45.0046, r: 5000, c: 'RU', n: 'Пенза' },
   'липецк': { lat: 52.6089, lon: 39.5991, r: 5000, c: 'RU', n: 'Липецк' },
   'киров': { lat: 58.6036, lon: 49.6680, r: 5000, c: 'RU', n: 'Киров' },
-  'чебоксары': { lat: 56.1462, lon: 47.2513, r: 5000, c: 'RU', n: 'Чебоксары' },
-  'тула': { lat: 54.1961, lon: 37.6182, r: 5000, c: 'RU', n: 'Тула' },
+  'чебоксары': { lat: 56.1462, lon: 47.2513, r: 5000, c: 'RU', n: 'Чебоксары,' },
+  'тула': { lat: 54.1961, lon: lon 37.618:2, r: 500 0, c: 'RU36', n: 'Т.ула' },
   'калининград': { lat: 54.7104, lon: 20.4522, r: 5000, c: 'RU', n: 'Калининград' },
-  'курск': { lat: 51.7303, lon: 36.1926, r: 5000, c: 'RU', n: 'Курск' },
+  'курск': { lat: 51.73031926, r: 5000, c: 'RU', n: 'Курск' },
   'севастополь': { lat: 44.6166, lon: 33.5254, r: 5000, c: 'RU', n: 'Севастополь' },
   'сочи': { lat: 43.5855, lon: 39.7231, r: 5000, c: 'RU', n: 'Сочи' },
   'ставрополь': { lat: 45.0428, lon: 41.9734, r: 5000, c: 'RU', n: 'Ставрополь' },
@@ -154,20 +160,211 @@ const COUNTRIES = {
   AZ: 'Азербайджан', TR: 'Турция', AE: 'ОАЭ',
 };
 
+const FREE_LIMIT = 3;
+const SESSION_DAYS = 30;
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Credentials': 'true',
+};
+
+function json(data, status = 200, extra = {}) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { ...CORS, 'Content-Type': 'application/json; charset=utf-8', ...extra },
+  });
+}
+
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+async function hashPassword(password, salt) {
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt: enc.encode(salt), iterations: 10000, hash: 'SHA-256' },
+    keyMaterial,
+    256
+  );
+  return [...new Uint8Array(bits)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function randomHex(n) {
+  const buf = new Uint8Array(n);
+  crypto.getRandomValues(buf);
+  return [...buf].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function parseCookies(header) {
+  const out = {};
+  if (!header) return out;
+  for (const pair of header.split(';')) {
+    const idx = pair.indexOf('=');
+    if (idx < 0) continue;
+    const k = pair.slice(0, idx).trim();
+    const v = pair.slice(idx + 1).trim();
+    out[k] = decodeURIComponent(v);
+  }
+  return out;
+}
+
+function sessionCookie(token, maxAgeSec) {
+  return `session=${token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${maxAgeSec}`;
+}
+
+async function getSession(request, env) {
+  const cookies = parseCookies(request.headers.get('Cookie'));
+  const token = cookies.session;
+  if (!token) return null;
+  const now = Date.now();
+  const row = await env.DB.prepare(
+    'SELECT s.token, s.user_id, s.expires_at, u.email, u.plan, u.searches_today, u.last_search_date FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ? AND s.expires_at > ?'
+  ).bind(token, now).first();
+  if (!row) return null;
+  return { token, user: row };
+}
+
+function validEmail(e) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+}
+
+async function handleRegister(request, env) {
+  if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
+  if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405);
+
+  let body;
+  try { body = await request.json(); }
+  catch { return json({ error: 'некорректный JSON' }, 400); }
+
+  const email = String(body.email || '').trim().toLowerCase();
+  const password = String(body.password || '');
+
+  if (!validEmail(email)) return json({ error: 'некорректный email' }, 400);
+  if (password.length < 6) return json({ error: 'пароль минимум 6 символов' }, 400);
+
+  const exists = await env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(email).first();
+  if (exists) return json({ error: 'email уже занят' }, 409);
+
+  const salt = randomHex(16);
+  const hash = await hashPassword(password, salt);
+  const now = Date.now();
+
+  const res = await env.DB.prepare(
+    'INSERT INTO users (email, password_hash, salt, created_at, plan) VALUES (?, ?, ?, ?, ?)'
+  ).bind(email, hash, salt, now, 'free').run();
+
+  const userId = res.meta.last_row_id;
+  const token = randomHex(32);
+  const expires = now + SESSION_DAYS * 24 * 60 * 60 * 1000;
+
+  await env.DB.prepare(
+    'INSERT INTO sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)'
+  ).bind(token, userId, now, expires).run();
+
+  return json({
+    ok: true,
+    user: { id: userId, email, plan: 'free', searches_today: 0 },
+    limit: FREE_LIMIT,
+  }, 200, { 'Set-Cookie': sessionCookie(token, SESSION_DAYS * 24 * 60 * 60) });
+}
+
+async function handleLogin(request, env) {
+  if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
+  if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405);
+
+  let body;
+  try { body = await request.json(); }
+  catch { return json({ error: 'некорректный JSON' }, 400); }
+
+  const email = String(body.email || '').trim().toLowerCase();
+  const password = String(body.password || '');
+
+  const user = await env.DB.prepare(
+    'SELECT id, email, password_hash, salt, plan, searches_today, last_search_date FROM users WHERE email = ?'
+  ).bind(email).first();
+  if (!user) return json({ error: 'неверный email или пароль' }, 401);
+
+  const hash = await hashPassword(password, user.salt);
+  if (hash !== user.password_hash) return json({ error: 'неверный email или пароль' }, 401);
+
+  const now = Date.now();
+  const token = randomHex(32);
+  const expires = now + SESSION_DAYS * 24 * 60 * 60 * 1000;
+
+  await env.DB.prepare(
+    'INSERT INTO sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)'
+  ).bind(token, user.id, now, expires).run();
+
+  return json({
+    ok: true,
+    user: {
+      id: user.id,
+      email: user.email,
+      plan: user.plan,
+      searches_today: user.searches_today || 0,
+    },
+    limit: FREE_LIMIT,
+  }, 200, { 'Set-Cookie': sessionCookie(token, SESSION_DAYS * 24 * 60 * 60) });
+}
+
+async function handleLogout(request, env) {
+  if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
+  const session = await getSession(request, env);
+  if (session) {
+    await env.DB.prepare('DELETE FROM sessions WHERE token = ?').bind(session.token).run();
+  }
+  return json({ ok: true }, 200, { 'Set-Cookie': 'session=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0' });
+}
+
+async function handleMe(request, env) {
+  if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
+  const session = await getSession(request, env);
+  if (!session) return json({ user: null }, 200);
+
+  const u = session.user;
+  const todayStr = today();
+  const usedToday = u.last_search_date === todayStr ? (u.searches_today || 0) : 0;
+
+  return json({
+    user: {
+      id: u.user_id,
+      email: u.email,
+      plan: u.plan,
+      searches_today: usedToday,
+    },
+    limit: FREE_LIMIT,
+  });
+}
+
 function normalizeCity(s) {
   return s.toLowerCase().trim().replace(/ё/g, 'е').replace(/\s+/g, ' ');
 }
 
-async function handleLocate(request) {
+async function handleLocate(request, env) {
+  if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
+
   const url = new URL(request.url);
   const city = (url.searchParams.get('city') || '').trim();
   const niche = (url.searchParams.get('niche') || '').trim();
-  const CORS = {
-    'Access-Control-Allow-Origin': '*',
-    'Content-Type': 'application/json; charset=utf-8',
-  };
-  if (!city || !niche) {
-    return new Response(JSON.stringify({ error: 'нужны city и niche' }), { status: 400, headers: CORS });
+
+  if (!city || !niche) return json({ error: 'нужны city и niche' }, 400);
+
+  const session = await getSession(request, env);
+  if (!session) return json({ error: 'нужен вход', code: 'AUTH_REQUIRED' }, 401);
+
+  const u = session.user;
+  const todayStr = today();
+  const usedToday = u.last_search_date === todayStr ? (u.searches_today || 0) : 0;
+
+  if (u.plan === 'free' && usedToday >= FREE_LIMIT) {
+    return json({
+      error: 'лимит бесплатных поисков исчерпан',
+      code: 'LIMIT_REACHED',
+      limit: FREE_LIMIT,
+      used: usedToday,
+    }, 429);
   }
 
   const key = normalizeCity(city);
@@ -194,14 +391,10 @@ async function handleLocate(request) {
     } catch (e) {}
   }
 
-  if (!cityInfo) {
-    return new Response(JSON.stringify({ error: 'город не найден' }), { status: 404, headers: CORS });
-  }
+  if (!cityInfo) return json({ error: 'город не найден' }, 404);
 
   const tags = NICHES[niche.toLowerCase().trim()];
-  if (!tags) {
-    return new Response(JSON.stringify({ error: 'ниша не поддерживается' }), { status: 404, headers: CORS });
-  }
+  if (!tags) return json({ error: 'ниша не поддерживается' }, 404);
 
   const r = Math.min(cityInfo.r, 5000);
   const dLat = r / 111000;
@@ -220,13 +413,22 @@ async function handleLocate(request) {
   }
   const query = `[out:json][timeout:25];(${parts});out center 150;`;
 
-  return new Response(JSON.stringify({
+  // Записываем факт поиска в историю юзера
+  const newCount = usedToday + 1;
+  await env.DB.prepare(
+    'UPDATE users SET searches_today = ?, last_search_date = ? WHERE id = ?'
+  ).bind(newCount, todayStr, u.user_id).run();
+
+  return json({
     city: cityInfo.n,
     country: COUNTRIES[cityInfo.c] || cityInfo.c,
     countryCode: cityInfo.c,
     niche: niche,
     bbox: bbox,
     query: query,
+    used: newCount,
+    limit: FREE_LIMIT,
+    plan: u.plan,
     updated: new Date().toISOString(),
-  }), { headers: { ...CORS, 'Cache-Control': 'public, max-age=3600' } });
+  });
 }
