@@ -115,6 +115,8 @@ const COUNTRIES = {
 };
 
 const FREE_LIMIT = 3;
+const FREE_RESULT_LIMIT = 10;
+const PRO_RESULT_LIMIT = 999;
 const SESSION_DAYS = 30;
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -197,6 +199,10 @@ function validEmail(e) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 }
 
+function resultLimitFor(plan) {
+  return plan === 'pro' ? PRO_RESULT_LIMIT : FREE_RESULT_LIMIT;
+}
+
 async function handleRegister(request, env) {
   if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
   if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405);
@@ -233,7 +239,8 @@ async function handleRegister(request, env) {
   return json({
     ok: true,
     user: { id: userId, email: email, plan: 'free', searches_today: 0 },
-    limit: FREE_LIMIT
+    limit: FREE_LIMIT,
+    result_limit: FREE_RESULT_LIMIT
   }, 200, { 'Set-Cookie': sessionCookie(token, SESSION_DAYS * 24 * 60 * 60) });
 }
 
@@ -264,10 +271,14 @@ async function handleLogin(request, env) {
     'INSERT INTO sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)'
   ).bind(token, user.id, now, expires).run();
 
+  var todayStr = today();
+  var usedToday = user.last_search_date === todayStr ? (user.searches_today || 0) : 0;
+
   return json({
     ok: true,
-    user: { id: user.id, email: user.email, plan: user.plan, searches_today: user.searches_today || 0 },
-    limit: FREE_LIMIT
+    user: { id: user.id, email: user.email, plan: user.plan, searches_today: usedToday },
+    limit: FREE_LIMIT,
+    result_limit: resultLimitFor(user.plan)
   }, 200, { 'Set-Cookie': sessionCookie(token, SESSION_DAYS * 24 * 60 * 60) });
 }
 
@@ -283,13 +294,14 @@ async function handleLogout(request, env) {
 async function handleMe(request, env) {
   if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
   var session = await getSession(request, env);
-  if (!session) return json({ user: null });
+  if (!session) return json({ user: null, limit: FREE_LIMIT, result_limit: FREE_RESULT_LIMIT });
   var u = session.user;
   var todayStr = today();
   var usedToday = u.last_search_date === todayStr ? (u.searches_today || 0) : 0;
   return json({
     user: { id: u.user_id, email: u.email, plan: u.plan, searches_today: usedToday },
-    limit: FREE_LIMIT
+    limit: FREE_LIMIT,
+    result_limit: resultLimitFor(u.plan)
   });
 }
 
@@ -390,6 +402,7 @@ async function handleLocate(request, env) {
     query: query,
     used: newCount,
     limit: FREE_LIMIT,
+    result_limit: resultLimitFor(u.plan),
     plan: u.plan,
     updated: new Date().toISOString()
   });
