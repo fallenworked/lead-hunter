@@ -57,37 +57,46 @@ function withTimeout(promise, ms) {
 }
 
 async function geocode(city) {
-  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=jsonv2&limit=1&accept-language=ru`;
+  // Photon - открытый геокодер Komoot, не блокирует CF Workers
+  const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(city)}&limit=1&lang=ru`;
   const r = await fetch(url, { headers: { 'User-Agent': UA } });
   if (!r.ok) throw new Error('geocode ' + r.status);
   const data = await r.json();
-  if (!data.length) throw new Error('город не найден');
-  const hit = data[0];
-  let areaId;
-  if (hit.osm_type === 'relation') areaId = 3600000000 + hit.osm_id;
-  else if (hit.osm_type === 'way') areaId = 2400000000 + hit.osm_id;
-  else throw new Error('город не поддержан (node)');
-  return { areaId, display: hit.display_name };
+  if (!data.features || !data.features.length) throw new Error('город не найден');
+  const f = data.features[0];
+  const p = f.properties || {};
+  const bbox = f.bbox;
+  const display = [p.name, p.state, p.country].filter(Boolean).join(', ');
+  if (!bbox || bbox.length !== 4) {
+    const [lon, lat] = f.geometry.coordinates;
+    const d = 0.15;
+    return { bbox: [lat - d, lon - d, lat + d, lon + d], display };
+  }
+  // GeoJSON bbox = [minLon, minLat, maxLon, maxLat] → Overpass ждёт [south, west, north, east]
+  return {
+    bbox: [bbox[1], bbox[0], bbox[3], bbox[2]],
+    display,
+  };
 }
 
-function buildOverpassQuery(areaId, niche) {
+function buildOverpassQuery(bbox, niche) {
+  const [s, w, n, e] = bbox;
+  const bboxStr = `${s},${w},${n},${e}`;
   const tags = NICHES[niche.toLowerCase().trim()];
   if (!tags) {
     return `[out:json][timeout:25];
-area(${areaId})->.a;
 (
-  node["name"~"${niche}","i"][!website][!contact:website](area.a);
-  way["name"~"${niche}","i"][!website][!contact:website](area.a);
+  node["name"~"${niche}","i"][!website][!contact:website](${bboxStr});
+  way["name"~"${niche}","i"][!website][!contact:website](${bboxStr});
 );
 out center 80;`;
   }
   let parts = '';
   for (const [k, v] of tags) {
-    parts += `node["${k}"="${v}"][!website][!contact:website](area.a);`;
-    parts += `way["${k}"="${v}"][!website][!contact:website](area.a);`;
+    parts += `node["${k}"="${v}"][!website][!contact:website](${bboxStr});`;
+    parts += `way["${k}"="${v}"][!website][!contact:website](${bboxStr});`;
   }
   return `[out:json][timeout:25];
-area(${areaId})->.a;
 (${parts});
 out center 80;`;
 }
@@ -155,12 +164,12 @@ async function handleSearch(request) {
   const debug = {};
   const t0 = Date.now();
   try {
-    const { areaId, display } = await withTimeout(geocode(city), 10000);
+    const { bbox, display } = await withTimeout(geocode(city), 10000);
     debug.geocode_ms = Date.now() - t0;
-    debug.area_id = areaId;
+    debug.bbox = bbox;
     debug.area_display = display;
 
-    const q = buildOverpassQuery(areaId, niche);
+    const q = buildOverpassQuery(bbox, niche);
     debug.query_len = q.length;
 
     const t1 = Date.now();
