@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Lead Hunter · база бизнесов без сайта</title>
+<title>Lead Hunter</title>
 <link rel="icon" type="image/png" href="/logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -29,23 +29,46 @@ button,input{font-family:inherit}
 .preloader-status{font-size:10.5px;color:var(--muted);letter-spacing:.14em;text-transform:uppercase;font-weight:600}
 .app{opacity:0;transition:opacity .8s;max-width:1320px;margin:0 auto;padding:20px 24px 60px}
 .app.show{opacity:1}
-.nav{display:flex;align-items:center;gap:32px;padding:16px 0 20px;border-bottom:1px solid var(--border);margin-bottom:28px}
+.nav{display:flex;align-items:center;gap:20px;padding:16px 0 20px;border-bottom:1px solid var(--border);margin-bottom:28px}
 .nav-brand{display:flex;align-items:center;gap:12px;font-size:16px;font-weight:900;letter-spacing:.18em}
 .nav-brand img{width:38px;height:38px;object-fit:contain;mix-blend-mode:screen;filter:brightness(1.4) contrast(1.15);transform:scale(1.4)}
 .nav-brand span{background:linear-gradient(135deg,#fff,var(--silver-2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.nav-menu{display:flex;gap:28px;margin-left:auto;font-size:13px;color:var(--text-dim);align-items:center}
-.nav-menu a{transition:color .15s;cursor:pointer;padding-bottom:22px}
-.nav-menu a:hover{color:var(--text)}
-.nav-menu a.active{color:var(--silver)}
-.nav-user{display:flex;align-items:center;gap:14px;margin-left:auto;font-size:13px}
-.nav-user .email{color:var(--silver);font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.nav-user .plan{font-size:10px;font-weight:700;padding:3px 8px;border-radius:5px;letter-spacing:.06em}
-.nav-user .plan.free{background:rgba(139,146,163,.15);color:var(--text-dim)}
-.nav-user .plan.pro{background:linear-gradient(135deg,var(--ok),#0fa870);color:#050608}
-.nav-user .counter{color:var(--muted);font-size:12px}
-.btn-login{background:linear-gradient(135deg,var(--silver),#fff);color:#050608;border:0;padding:8px 16px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;box-shadow:0 4px 16px rgba(201,205,214,.2)}
-.btn-logout{background:transparent;border:1px solid var(--border-2);color:var(--text-dim);padding:7px 14px;border-radius:8px;font-weight:600;font-size:12.5px;cursor:pointer}
-.btn-logout:hover{border-color:var(--hot);color:var(--hot)}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.nav-plan{font-size:10px;font-weight:700;padding:4px 9px;border-radius:6px;letter-spacing:.06em}
+.nav-plan.free{background:rgba(139,146,163,.15);color:var(--text-dim)}
+.nav-plan.pro{background:linear-gradient(135deg,var(--ok),#0fa870);color:#050608}
+.btn-login{background:linear-gradient(135deg,var(--silver),#fff);color:#050608;border:0;padding:9px 18px;border-radius:9px;font-weight:700;font-size:13px;cursor:pointer;box-shadow:0 4px 16px rgba(201,205,214,.2);transition:all .2s}
+.btn-login:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(201,205,214,.35)}
+.burger{width:42px;height:42px;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid var(--border-2);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;transition:all .2s;flex-shrink:0}
+.burger:hover{border-color:var(--silver-2);background:rgba(255,255,255,.06)}
+.burger span{display:block;width:18px;height:2px;background:var(--silver);border-radius:2px;transition:all .25s}
+.burger.open span:nth-child(1){transform:translateY(7px) rotate(45deg)}
+.burger.open span:nth-child(2){opacity:0}
+.burger.open span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
+.drawer{position:fixed;inset:0;z-index:9000;pointer-events:none}
+.drawer.show{pointer-events:auto}
+.drawer-bg{position:absolute;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);opacity:0;transition:opacity .3s}
+.drawer.show .drawer-bg{opacity:1}
+.drawer-body{position:absolute;top:0;right:0;bottom:0;width:320px;max-width:88vw;background:var(--panel);border-left:1px solid var(--border-2);transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;overflow-y:auto}
+.drawer.show .drawer-body{transform:translateX(0)}
+.drawer-head{padding:24px 22px 20px;border-bottom:1px solid var(--border);position:relative}
+.drawer-close{position:absolute;top:16px;right:16px;background:transparent;border:0;color:var(--muted);font-size:26px;cursor:pointer;line-height:1;padding:4px 8px;border-radius:6px}
+.drawer-close:hover{color:var(--text);background:rgba(255,255,255,.05)}
+.drawer-user{display:flex;align-items:center;gap:12px;margin-bottom:4px}
+.drawer-avatar{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--silver),var(--silver-2));color:#050608;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;flex-shrink:0}
+.drawer-email{font-size:13.5px;font-weight:600;color:#fff;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.drawer-sub{font-size:11.5px;color:var(--muted);margin-top:2px}
+.drawer-sub b{color:var(--silver)}
+.drawer-badge{display:inline-block;font-size:10px;font-weight:700;padding:3px 8px;border-radius:5px;background:rgba(139,146,163,.15);color:var(--text-dim);letter-spacing:.06em;margin-top:8px}
+.drawer-badge.pro{background:linear-gradient(135deg,var(--ok),#0fa870);color:#050608}
+.drawer-nav{padding:10px 0;flex:1}
+.drawer-section{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.14em;padding:14px 22px 6px}
+.drawer-item{display:flex;align-items:center;gap:12px;padding:12px 22px;font-size:14px;color:var(--text-dim);cursor:pointer;transition:all .15s;border-left:2px solid transparent}
+.drawer-item:hover{background:rgba(255,255,255,.03);color:var(--text);border-left-color:var(--silver-2)}
+.drawer-item svg{width:16px;height:16px;flex-shrink:0;opacity:.7}
+.drawer-item.danger:hover{color:var(--hot);border-left-color:var(--hot)}
+.drawer-item .right{margin-left:auto;font-size:11px;color:var(--muted)}
+.drawer-foot{padding:16px 22px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);text-align:center}
 .hero{margin-bottom:32px}
 .hero h1{font-size:clamp(28px,4.2vw,46px);font-weight:900;letter-spacing:-.035em;line-height:1.08;margin-bottom:12px}
 .hero h1 .grad{background:linear-gradient(135deg,#fff 15%,var(--silver) 55%,var(--silver-2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
@@ -77,9 +100,9 @@ button,input{font-family:inherit}
 .stat-value{font-size:28px;font-weight:800;letter-spacing:-.03em;line-height:1;background:linear-gradient(135deg,#fff,var(--silver-2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .stat-value.sm{font-size:15px;font-weight:600;letter-spacing:0;line-height:1.2;padding-top:6px}
 .actionbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px}
-.actionbar-info{font-size:13px;color:var(--text-dim);margin-right:auto;display:flex;align-items:center;gap:8px}
+.actionbar-info{font-size:13px;color:var(--text-dim);margin-right:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .actionbar-info b{color:var(--silver);font-weight:600}
-.live-dot{width:6px;height:6px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 4px rgba(34,197,139,.15);animation:pulse 2s infinite}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 4px rgba(34,197,139,.15);animation:pulse 2s infinite;flex-shrink:0}
 @keyframes pulse{50%{opacity:.5}}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px}
 .card{background:linear-gradient(180deg,var(--panel),rgba(12,14,19,.85));border:1px solid var(--border);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:12px;transition:all .25s;position:relative;overflow:hidden;animation:cardIn .5s backwards}
@@ -98,7 +121,7 @@ button,input{font-family:inherit}
 .contact-actions a{padding:7px 11px;border-radius:8px;background:rgba(255,255,255,.02);border:1px solid var(--border-2);font-size:12px;font-weight:600;color:var(--text-dim);transition:all .15s}
 .contact-actions a:hover{color:var(--silver);border-color:var(--silver-2)}
 .contact-actions a.primary{background:linear-gradient(135deg,var(--silver),#fff);color:#050608;border-color:transparent}
-.empty{grid-column:1/-1;text-align:center;padding:90px 20px;color:var(--text-dim);background:var(--panel);border:1px dashed var(--border-2);border-radius:14px}
+.empty{grid-column:1/-1;text-align:center;padding:80px 20px;color:var(--text-dim);background:var(--panel);border:1px dashed var(--border-2);border-radius:14px}
 .empty h2{color:var(--text);font-size:18px;margin-bottom:8px;font-weight:700}
 .empty-icon{font-size:42px;margin-bottom:14px;opacity:.3}
 .empty .cta{margin-top:20px;display:inline-block;padding:12px 22px;background:linear-gradient(135deg,var(--silver),#fff);color:#050608;border-radius:10px;font-weight:700;cursor:pointer;border:0;font-size:14px}
@@ -121,7 +144,9 @@ footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);displ
 .modal-msg{font-size:12.5px;margin-top:12px;text-align:center;min-height:16px}
 .modal-msg.err{color:var(--hot)}
 .modal-msg.ok{color:var(--ok)}
-@media(max-width:640px){.app{padding:14px 14px 40px}.grid{grid-template-columns:1fr}.stat-value{font-size:22px}.btn{width:100%}.field{min-width:0}.nav{gap:16px}.nav-brand{font-size:14px;letter-spacing:.14em}.nav-brand img{width:32px;height:32px}.hero h1{font-size:24px}.nav-user{gap:8px}.nav-user .email{max-width:90px;font-size:12px}}
+.notice{padding:12px 16px;background:rgba(224,164,74,.08);border:1px solid rgba(224,164,74,.2);border-radius:10px;font-size:13px;color:var(--warm);margin-bottom:16px;display:flex;align-items:center;gap:10px;grid-column:1/-1}
+.notice a{color:var(--silver);font-weight:700;text-decoration:underline;cursor:pointer}
+@media(max-width:640px){.app{padding:14px 14px 40px}.grid{grid-template-columns:1fr}.stat-value{font-size:22px}.btn{width:100%}.field{min-width:0}.nav{gap:10px}.nav-brand{font-size:13px;letter-spacing:.12em}.nav-brand img{width:30px;height:30px}.hero h1{font-size:24px}.drawer-body{width:280px}}
 </style>
 </head>
 <body>
@@ -159,20 +184,39 @@ footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);displ
   </div>
 </div>
 
+<div class="drawer" id="drawer">
+  <div class="drawer-bg" id="drawerBg"></div>
+  <div class="drawer-body">
+    <div class="drawer-head">
+      <button class="drawer-close" id="drawerClose">×</button>
+      <div id="drawerAuth"></div>
+      <div id="drawerGuest">
+        <div class="drawer-user">
+          <div class="drawer-avatar">?</div>
+          <div>
+            <div class="drawer-email">Гость</div>
+            <div class="drawer-sub">Войди чтобы начать</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="drawer-nav" id="drawerNav"></div>
+    <div class="drawer-foot">Lead Hunter · v1.0</div>
+  </div>
+</div>
+
 <div class="app" id="app">
   <nav class="nav">
     <div class="nav-brand">
       <img src="/logo.png" alt="Lead Hunter">
       <span>LEAD HUNTER</span>
     </div>
-    <div class="nav-user" id="navUser" style="display:none">
-      <span class="plan free" id="navPlan">FREE</span>
-      <span class="email" id="navEmail">-</span>
-      <span class="counter" id="navCounter"></span>
-      <button class="btn-logout" id="navLogout">Выйти</button>
-    </div>
-    <div class="nav-menu" id="navMenu">
+    <div class="nav-right">
+      <span class="nav-plan free" id="navPlan" style="display:none">FREE</span>
       <button class="btn-login" id="navLogin">Войти</button>
+      <button class="burger" id="burger" aria-label="Меню">
+        <span></span><span></span><span></span>
+      </button>
     </div>
   </nav>
 
@@ -235,7 +279,7 @@ footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);displ
 (function(){
   'use strict';
 
-  var state = { leads: [], city: '', niche: '', user: null, limit: 3 };
+  var state = { leads: [], city: '', niche: '', user: null, limit: 3, resultLimit: 10, lastTotal: 0 };
 
   function $(id){ return document.getElementById(id); }
 
@@ -330,7 +374,14 @@ footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);displ
       g.innerHTML = '<div class="empty"><div class="empty-icon">∅</div><h2>Ничего не найдено</h2><p>Попробуй другую нишу или город</p></div>';
       return;
     }
+
     var html = '';
+
+    // Плашка о лимите для free
+    if(state.user && state.user.plan === 'free' && state.lastTotal > state.resultLimit){
+      html += '<div class="notice">Показано <b>' + state.resultLimit + '</b> из <b>' + state.lastTotal + '</b>. <a id="noticeUpgrade">Оформить подписку</a> - увидеть все результаты и скачать CSV.</div>';
+    }
+
     for(var i = 0; i < leads.length; i++){
       var l = leads[i];
       var hasPhone = !!l.phone;
@@ -377,29 +428,76 @@ footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);displ
       html += '</div></article>';
     }
     g.innerHTML = html;
+
+    var nu = $('noticeUpgrade');
+    if(nu) nu.addEventListener('click', openPlans);
   }
 
   function updateNavUI(){
-    var nu = $('navUser');
-    var nm = $('navMenu');
-    if(!nu || !nm) return;
+    var planEl = $('navPlan');
+    var loginBtn = $('navLogin');
     if(state.user){
-      nu.style.display = 'flex';
-      nm.style.display = 'none';
-      $('navEmail').textContent = state.user.email;
-      var plan = state.user.plan === 'pro' ? 'PRO' : 'FREE';
-      var planEl = $('navPlan');
-      planEl.textContent = plan;
-      planEl.className = 'plan ' + (state.user.plan === 'pro' ? 'pro' : 'free');
-      if(state.user.plan === 'free'){
-        var used = state.user.searches_today || 0;
-        $('navCounter').textContent = used + '/' + state.limit;
-      } else {
-        $('navCounter').textContent = '∞';
+      if(loginBtn) loginBtn.style.display = 'none';
+      if(planEl){
+        planEl.style.display = 'inline-block';
+        planEl.textContent = state.user.plan === 'pro' ? 'PRO' : 'FREE';
+        planEl.className = 'nav-plan ' + (state.user.plan === 'pro' ? 'pro' : 'free');
       }
     } else {
-      nu.style.display = 'none';
-      nm.style.display = 'flex';
+      if(loginBtn) loginBtn.style.display = 'inline-block';
+      if(planEl) planEl.style.display = 'none';
+    }
+    renderDrawer();
+  }
+
+  function renderDrawer(){
+    var auth = $('drawerAuth');
+    var guest = $('drawerGuest');
+    var nav = $('drawerNav');
+    if(!auth || !guest || !nav) return;
+
+    if(state.user){
+      auth.style.display = 'block';
+      guest.style.display = 'none';
+      var initial = state.user.email.charAt(0).toUpperCase();
+      var planText = state.user.plan === 'pro' ? 'PRO' : 'FREE';
+      var subText = '';
+      if(state.user.plan === 'free'){
+        var used = state.user.searches_today || 0;
+        var left = Math.max(0, state.limit - used);
+        subText = 'Осталось поисков: <b>' + left + '/' + state.limit + '</b>';
+      } else {
+        subText = 'Подписка активна';
+      }
+      auth.innerHTML =
+        '<div class="drawer-user">' +
+          '<div class="drawer-avatar">' + esc(initial) + '</div>' +
+          '<div>' +
+            '<div class="drawer-email">' + esc(state.user.email) + '</div>' +
+            '<div class="drawer-sub">' + subText + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="drawer-badge ' + (state.user.plan === 'pro' ? 'pro' : '') + '">' + planText + '</div>';
+
+      nav.innerHTML =
+        '<div class="drawer-section">Аккаунт</div>' +
+        '<div class="drawer-item" data-action="profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg>Профиль<span class="right">→</span></div>' +
+        '<div class="drawer-item" data-action="plans"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 6 6 1-4.5 4.5L18 20l-6-3-6 3 1.5-6.5L3 9l6-1z"/></svg>Подписка<span class="right">199₽</span></div>' +
+        '<div class="drawer-item" data-action="history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>История поиска</div>' +
+        '<div class="drawer-section">Настройки</div>' +
+        '<div class="drawer-item" data-action="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1l2-1.5-2-3.5-2.4 1a7 7 0 00-1.7-1L14.5 3h-5l-.4 2.5a7 7 0 00-1.7 1L5 5.5 3 9l2 1.5A7 7 0 005 12c0 .3 0 .7.1 1l-2 1.5 2 3.5 2.4-1a7 7 0 001.7 1L9.5 21h5l.4-2.5a7 7 0 001.7-1L19 18.5l2-3.5-2-1.5c0-.3.1-.7.1-1z"/></svg>Настройки</div>' +
+        '<div class="drawer-item" data-action="support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/><path d="M9.1 9a3 3 0 015.8 1c0 2-3 2-3 4"/><circle cx="12" cy="17" r="0.5" fill="currentColor"/></svg>Поддержка</div>' +
+        '<div class="drawer-section"></div>' +
+        '<div class="drawer-item danger" data-action="logout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>Выйти</div>';
+    } else {
+      auth.style.display = 'none';
+      guest.style.display = 'block';
+      nav.innerHTML =
+        '<div class="drawer-section">Меню</div>' +
+        '<div class="drawer-item" data-action="login"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>Войти<span class="right">→</span></div>' +
+        '<div class="drawer-item" data-action="plans"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 6 6 1-4.5 4.5L18 20l-6-3-6 3 1.5-6.5L3 9l6-1z"/></svg>Тарифы<span class="right">199₽</span></div>' +
+        '<div class="drawer-item" data-action="about"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4"/><circle cx="12" cy="8" r="0.5" fill="currentColor"/></svg>О сервисе</div>' +
+        '<div class="drawer-item" data-action="support"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/><path d="M9.1 9a3 3 0 015.8 1c0 2-3 2-3 4"/><circle cx="12" cy="17" r="0.5" fill="currentColor"/></svg>Поддержка</div>';
     }
   }
 
@@ -407,6 +505,7 @@ footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);displ
     return fetch('/api/auth/me').then(function(r){ return r.json(); }).then(function(d){
       state.user = d.user || null;
       state.limit = d.limit || 3;
+      state.resultLimit = d.result_limit || 10;
       updateNavUI();
       return d;
     }).catch(function(){ return null; });
@@ -427,17 +526,39 @@ footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);displ
       $('authSwitchLink').textContent = 'Регистрация';
     } else {
       $('authTitle').textContent = 'Регистрация';
-      $('authSub').textContent = 'Создай аккаунт - бесплатно';
+      $('authSub').textContent = 'Создай аккаунт - бесплатно, 3 поиска в день';
       $('authSubmit').textContent = 'Создать аккаунт';
       $('authSwitchText').textContent = 'Уже есть аккаунт?';
       $('authSwitchLink').textContent = 'Войти';
     }
+    closeDrawer();
     m.classList.add('show');
   }
 
   function closeAuth(){
     var m = $('authModal');
     if(m) m.classList.remove('show');
+  }
+
+  function openDrawer(){
+    var d = $('drawer');
+    var b = $('burger');
+    if(!d) return;
+    renderDrawer();
+    d.classList.add('show');
+    if(b) b.classList.add('open');
+  }
+
+  function closeDrawer(){
+    var d = $('drawer');
+    var b = $('burger');
+    if(d) d.classList.remove('show');
+    if(b) b.classList.remove('open');
+  }
+
+  function openPlans(){
+    closeDrawer();
+    alert('Подписка 199₽/мес или 1199₽/год.\nПодключение платежей появится в ближайшее время.\nПока - напиши в поддержку.');
   }
 
   function submitAuth(){
@@ -463,6 +584,7 @@ footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);displ
         }
         state.user = res.data.user;
         state.limit = res.data.limit || 3;
+        state.resultLimit = res.data.result_limit || 10;
         updateNavUI();
         msg.textContent = 'Готово!'; msg.className = 'modal-msg ok';
         setTimeout(function(){ closeAuth(); doSearch(); }, 400);
@@ -478,10 +600,12 @@ footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);displ
     fetch('/api/auth/logout', { method: 'POST' }).then(function(){
       state.user = null;
       state.leads = [];
+      state.lastTotal = 0;
       updateNavUI();
       $('grid').innerHTML = '';
       var infoEl = $('info');
       if(infoEl) infoEl.textContent = 'Введи город и нишу, нажми «Найти клиентов»';
+      closeDrawer();
     });
   }
 
@@ -491,20 +615,22 @@ footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);displ
     g.innerHTML = '<div class="empty"><div class="empty-icon">🔒</div>' +
       '<h2>Лимит бесплатных поисков исчерпан</h2>' +
       '<p>Ты использовал все ' + state.limit + ' поиска на сегодня.</p>' +
-      '<p style="margin-top:8px">Подписка открывает безлимитный доступ.</p>' +
+      '<p style="margin-top:8px">Подписка открывает безлимитный доступ и CSV-экспорт.</p>' +
       '<button class="cta" id="openPro">Оформить подписку - 199₽/мес</button></div>';
     var btn = $('openPro');
-    if(btn){
-      btn.addEventListener('click', function(){
-        alert('Подключение подписки скоро. Пока свяжись с нами в Telegram.');
-      });
-    }
+    if(btn) btn.addEventListener('click', openPlans);
   }
 
   function doSearch(){
     var cityEl = $('city');
     var nicheEl = $('niche');
     if(!cityEl || !nicheEl) return;
+
+    if(!state.user){
+      openAuth('login');
+      return;
+    }
+
     var city = cityEl.value.trim();
     var niche = nicheEl.value.trim();
     if(!city || !niche){ alert('Заполни город и нишу'); return; }
@@ -521,23 +647,15 @@ footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);displ
     fetch('/api/locate?city=' + encodeURIComponent(city) + '&niche=' + encodeURIComponent(niche))
       .then(function(r){ return r.json().then(function(d){ return { status: r.status, data: d }; }); })
       .then(function(res){
-        if(res.data.code === 'AUTH_REQUIRED'){
-          closeAuth();
-          openAuth('login');
-          throw new Error('__AUTH__');
-        }
-        if(res.data.code === 'LIMIT_REACHED'){
-          showLimitReached();
-          throw new Error('__LIMIT__');
-        }
+        if(res.data.code === 'AUTH_REQUIRED'){ openAuth('login'); throw new Error('__AUTH__'); }
+        if(res.data.code === 'LIMIT_REACHED'){ showLimitReached(); throw new Error('__LIMIT__'); }
         if(res.data.error) throw new Error(res.data.error);
         locData = res.data;
-
         if(state.user && state.user.plan === 'free'){
           state.user.searches_today = res.data.used || 0;
+          state.resultLimit = res.data.result_limit || 10;
           updateNavUI();
         }
-
         if(infoEl) infoEl.innerHTML = 'Опрашиваю OpenStreetMap…';
 
         var endpoints = [
@@ -591,21 +709,38 @@ footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);displ
             type: t.amenity || t.shop || t.office || t.healthcare || t.leisure || t.tourism || ''
           });
         }
-        var withPhone = 0, withAddr = 0;
-        for(var j = 0; j < leads.length; j++){
-          if(leads[j].phone) withPhone++;
-          if(leads[j].addr) withAddr++;
+
+        var totalFound = leads.length;
+        var shown = leads;
+        var rLimit = loc.result_limit || 999;
+        if(leads.length > rLimit){
+          shown = leads.slice(0, rLimit);
         }
-        state.leads = leads;
-        animateNumber($('s-total'), leads.length);
+
+        state.lastTotal = totalFound;
+        state.leads = shown;
+
+        var withPhone = 0, withAddr = 0;
+        for(var j = 0; j < shown.length; j++){
+          if(shown[j].phone) withPhone++;
+          if(shown[j].addr) withAddr++;
+        }
+
+        animateNumber($('s-total'), totalFound);
         animateNumber($('s-phone'), withPhone);
         animateNumber($('s-addr'), withAddr);
         var sc = $('s-city');
         if(sc) sc.textContent = loc.country ? (loc.city + ', ' + loc.country) : loc.city;
+
         if(infoEl){
-          var suffix = '';
-          if(state.user && state.user.plan === 'free') suffix = ' · осталось поисков: ' + Math.max(0, state.limit - (state.user.searches_today || 0));
-          infoEl.innerHTML = 'Найдено <b>' + leads.length + '</b> · с телефоном: <b>' + withPhone + '</b>' + suffix;
+          var txt = 'Найдено <b>' + totalFound + '</b>';
+          if(shown.length < totalFound) txt += ' · показано <b>' + shown.length + '</b>';
+          txt += ' · с телефоном: <b>' + withPhone + '</b>';
+          if(state.user && state.user.plan === 'free'){
+            var left = Math.max(0, state.limit - (state.user.searches_today || 0));
+            txt += ' · осталось поисков: <b>' + left + '</b>';
+          }
+          infoEl.innerHTML = txt;
         }
         render();
       })
@@ -646,6 +781,17 @@ footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);displ
     a.click();
   }
 
+  function handleDrawerAction(action){
+    if(action === 'login'){ closeDrawer(); setTimeout(function(){ openAuth('login'); }, 200); }
+    else if(action === 'logout'){ logout(); }
+    else if(action === 'plans'){ openPlans(); }
+    else if(action === 'profile'){ closeDrawer(); alert('Профиль: ' + (state.user ? state.user.email : '') + '\nРаздел в разработке.'); }
+    else if(action === 'history'){ closeDrawer(); alert('История поиска в разработке.'); }
+    else if(action === 'settings'){ closeDrawer(); alert('Настройки в разработке.'); }
+    else if(action === 'support'){ closeDrawer(); alert('Поддержка: напиши в Telegram-канал сервиса.'); }
+    else if(action === 'about'){ closeDrawer(); alert('Lead Hunter - поиск бизнесов без сайта.\nДанные OpenStreetMap.\nВерсия 1.0'); }
+  }
+
   function bind(){
     var goBtn = $('go'), csvBtn = $('csv');
     var cityEl = $('city'), nicheEl = $('niche'), presetsEl = $('presets');
@@ -664,11 +810,30 @@ footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);displ
       }
     });
 
-    var navLogin = $('navLogin'), navLogout = $('navLogout');
+    var navLogin = $('navLogin');
+    var burger = $('burger'), drawerBg = $('drawerBg'), drawerClose = $('drawerClose');
     var authClose = $('authModalClose'), authBg = $('authModalBg');
     var authForm = $('authForm'), authSwitch = $('authSwitchLink');
+    var drawerNav = $('drawerNav');
+
     if(navLogin) navLogin.addEventListener('click', function(){ openAuth('login'); });
-    if(navLogout) navLogout.addEventListener('click', logout);
+    if(burger) burger.addEventListener('click', function(){
+      var d = $('drawer');
+      if(d.classList.contains('show')) closeDrawer(); else openDrawer();
+    });
+    if(drawerBg) drawerBg.addEventListener('click', closeDrawer);
+    if(drawerClose) drawerClose.addEventListener('click', closeDrawer);
+    if(drawerNav) drawerNav.addEventListener('click', function(e){
+      var el = e.target;
+      while(el && el !== drawerNav){
+        if(el.classList && el.classList.contains('drawer-item')){
+          var action = el.getAttribute('data-action');
+          if(action) handleDrawerAction(action);
+          return;
+        }
+        el = el.parentNode;
+      }
+    });
     if(authClose) authClose.addEventListener('click', closeAuth);
     if(authBg) authBg.addEventListener('click', closeAuth);
     if(authForm) authForm.addEventListener('submit', submitAuth);
