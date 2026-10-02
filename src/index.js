@@ -18,7 +18,6 @@ function withTimeout(promise, ms) {
 }
 
 const RSS_SOURCES = [
-  { url: 'https://freelance.habr.com/tasks.rss', name: 'Habr Freelance' },
   { url: 'https://www.fl.ru/rss/all.xml', name: 'FL.ru' },
 ];
 
@@ -95,36 +94,26 @@ async function fetchKwork(url, sourceName) {
     cf: { cacheTtl: 300 },
   });
   if (!r.ok) throw new Error(`${url} → ${r.status}`);
-  const html2 = await r.text();
-  return parseKwork(html2, sourceName);
+  const body = await r.text();
+  return parseKwork(body, sourceName);
 }
 
-function parseKwork(html2, sourceName) {
+// Универсальный парсер: ловит любые ссылки вида /projects/NNNN и берёт текст ссылки как заголовок
+function parseKwork(body, sourceName) {
   const leads = [];
-  const cardRe = /<div[^>]*class="[^"]*wants-card[^"]*"[\s\S]*?(?=<div[^>]*class="[^"]*wants-card|<\/section>|<\/main>|$)/g;
-  const cards = html2.match(cardRe) || [];
-
-  for (const body of cards) {
-    const linkM = body.match(/href="(\/projects\/[^"?#]+)/);
-    if (!linkM) continue;
-    const link = 'https://kwork.ru' + linkM[1];
-
-    const titleM =
-      body.match(/class="[^"]*wants-card__header-title[^"]*"[^>]*>[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/) ||
-      body.match(/<a[^>]*href="\/projects\/[^"]*"[^>]*>([\s\S]*?)<\/a>/);
-    const title = titleM ? stripHTML(titleM[1]) : '';
-    if (!title) continue;
-
-    const descM = body.match(/class="[^"]*wants-card__description-text[^"]*"[^>]*>([\s\S]*?)<\/div>/);
-    const desc = descM ? stripHTML(descM[1]).slice(0, 400) : '';
-
-    const priceM = body.match(/class="[^"]*wants-card__header-price[^"]*"[^>]*>([\s\S]*?)<\/div>/);
-    const price = priceM ? stripHTML(priceM[1]) : '';
-
+  const seen = new Set();
+  const re = /<a[^>]+href="(\/projects\/\d+)"[^>]*>([\s\S]*?)<\/a>/g;
+  let m;
+  while ((m = re.exec(body)) !== null) {
+    const link = 'https://kwork.ru' + m[1];
+    if (seen.has(link)) continue;
+    const title = stripHTML(m[2]);
+    if (!title || title.length < 8) continue;
+    seen.add(link);
     leads.push({
       title: title.slice(0, 160),
       link,
-      desc: (desc + (price ? ` · 💰 ${price}` : '')).trim(),
+      desc: '',
       date: '',
       source: sourceName,
     });
@@ -133,7 +122,6 @@ function parseKwork(html2, sourceName) {
 }
 
 async function handleLeads(request) {
-  const url = new URL(request.url);
   const CORS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
@@ -155,13 +143,12 @@ async function handleLeads(request) {
     }
   };
 
-  const [habr, fl, kwork] = await Promise.all([
-    test('habr', () => fetchXML(RSS_SOURCES[0].url).then(x => parseRSS(x, RSS_SOURCES[0].name))),
-    test('fl', () => fetchXML(RSS_SOURCES[1].url).then(x => parseRSS(x, RSS_SOURCES[1].name))),
-    test('kwork', () => fetchKwork(KWORK_URLS[0].url, KWORK_URLS[0].name)),
+  const results = await Promise.all([
+    ...RSS_SOURCES.map(s => test(s.name, () => fetchXML(s.url).then(x => parseRSS(x, s.name)))),
+    ...KWORK_URLS.map(s => test(s.name, () => fetchKwork(s.url, s.name))),
   ]);
 
-  const all = [...habr, ...fl, ...kwork];
+  const all = results.flat();
   const seen = new Set();
   const unique = all.filter(l => {
     const k = l.link.replace(/[?#].*$/, '');
@@ -179,5 +166,5 @@ async function handleLeads(request) {
       .sort((a, b) => b.score - a.score)
       .slice(0, 150),
     debug,
-  }, null, 2), { headers: CORS });
+  }), { headers: CORS });
 }
