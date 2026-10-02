@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lead Hunter</title>
+<meta name="description" content="Агрегатор заказов на парсинг и автоматизацию">
+<style>
+  :root{--bg:#0a0a0f;--surface:#12121a;--border:#1f1f2e;--text:#e8e8f0;--muted:#7a7a8c;--accent:#6ee7ff;--accent2:#a78bfa;--hot:#ff6b6b;--warm:#ffb84d}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Inter",sans-serif;background:var(--bg);color:var(--text);line-height:1.5;min-height:100vh}
+  body::before{content:"";position:fixed;inset:0;z-index:-1;background:radial-gradient(600px circle at 15% 0%,rgba(110,231,255,.08),transparent 40%),radial-gradient(700px circle at 85% 100%,rgba(167,139,250,.08),transparent 40%)}
+  .wrap{max-width:1200px;margin:0 auto;padding:32px 20px}
+  header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;margin-bottom:32px}
+  .logo{font-weight:800;font-size:22px;letter-spacing:-.03em}
+  .logo span{background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+  .meta{font-size:13px;color:var(--muted)}
+  .meta b{color:var(--accent)}
+  .controls{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+  .search{flex:1;min-width:240px;position:relative}
+  .search input{width:100%;padding:14px 18px 14px 44px;background:var(--surface);border:1px solid var(--border);border-radius:12px;color:var(--text);font-size:15px;font-family:inherit;outline:none;transition:border .2s}
+  .search input:focus{border-color:var(--accent)}
+  .search::before{content:"⌕";position:absolute;left:16px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:18px}
+  .btn{padding:14px 22px;background:var(--surface);border:1px solid var(--border);border-radius:12px;color:var(--text);font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .2s;white-space:nowrap}
+  .btn:hover{border-color:var(--accent);color:var(--accent)}
+  .btn.primary{background:var(--text);color:var(--bg);border-color:var(--text)}
+  .btn.primary:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(110,231,255,.2);color:var(--bg)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px}
+  .chip{padding:6px 14px;border-radius:20px;background:var(--surface);border:1px solid var(--border);font-size:13px;color:var(--muted);cursor:pointer;transition:all .2s;user-select:none}
+  .chip:hover{border-color:var(--accent);color:var(--text)}
+  .chip.active{background:rgba(110,231,255,.1);border-color:var(--accent);color:var(--accent)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;transition:all .25s;display:flex;flex-direction:column;gap:12px;position:relative;overflow:hidden}
+  .card:hover{transform:translateY(-3px);border-color:rgba(110,231,255,.3)}
+  .card.hot::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--hot),transparent)}
+  .card-top{display:flex;justify-content:space-between;align-items:start;gap:12px}
+  .source{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent2)}
+  .score{font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;background:rgba(110,231,255,.08);color:var(--accent);white-space:nowrap}
+  .score.hot{background:rgba(255,107,107,.12);color:var(--hot)}
+  .score.warm{background:rgba(255,184,77,.12);color:var(--warm)}
+  .card h3{font-size:16px;font-weight:600;letter-spacing:-.01em;line-height:1.35}
+  .card h3 a{color:inherit;text-decoration:none}
+  .card h3 a:hover{color:var(--accent)}
+  .desc{font-size:13px;color:var(--muted);display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-line}
+  .card-foot{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted);margin-top:auto;padding-top:8px;border-top:1px solid var(--border)}
+  .card-foot a{color:var(--accent);text-decoration:none;font-weight:600}
+  .empty{text-align:center;padding:80px 20px;color:var(--muted)}
+  .empty h2{font-size:22px;color:var(--text);margin-bottom:8px;font-weight:600}
+  .skeleton{background:linear-gradient(90deg,var(--surface) 25%,#1a1a26 50%,var(--surface) 75%);background-size:200% 100%;animation:sh 1.4s infinite;border-radius:14px;height:180px}
+  @keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+  @media(max-width:640px){.wrap{padding:20px 14px}.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">Lead<span>Hunter</span></div>
+    <div class="meta" id="meta">Загрузка…</div>
+  </header>
+  <div class="controls">
+    <div class="search"><input id="q" placeholder="Фильтр: парсер, selenium, автоматизация…" autocomplete="off"></div>
+    <button class="btn primary" id="refresh">↻ Обновить</button>
+  </div>
+  <div class="filters" id="filters"></div>
+  <div class="grid" id="grid"></div>
+</div>
+<script>
+const API = '/api/leads';
+const state = { leads: [], sources: [], source: 'all', q: '' };
+const $grid = document.getElementById('grid');
+const $meta = document.getElementById('meta');
+const $q = document.getElementById('q');
+const $filters = document.getElementById('filters');
+const $refresh = document.getElementById('refresh');
+
+const esc = s => String(s || '').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+const scoreClass = s => s >= 6 ? 'hot' : s >= 3 ? 'warm' : '';
+const scoreLabel = s => s >= 6 ? '🔥 hot' : s >= 3 ? 'warm' : 'match';
+
+function timeAgo(dateStr){
+  if(!dateStr) return 'свежее';
+  const d = new Date(dateStr);
+  if(isNaN(d)) return 'свежее';
+  const diff = (Date.now() - d.getTime()) / 1000;
+  if(diff < 60) return 'только что';
+  if(diff < 3600) return Math.floor(diff/60) + ' мин';
+  if(diff < 86400) return Math.floor(diff/3600) + ' ч';
+  return Math.floor(diff/86400) + ' дн';
+}
+
+function renderSkeleton(){
+  $grid.innerHTML = Array(6).fill('<div class="skeleton"></div>').join('');
+}
+
+function renderFilters(){
+  const sources = ['all', ...state.sources];
+  $filters.innerHTML = sources.map(s => {
+    const label = s === 'all' ? 'Все источники' : s;
+    const active = state.source === s ? 'active' : '';
+    return `<div class="chip ${active}" data-src="${esc(s)}">${esc(label)}</div>`;
+  }).join('');
+}
+
+function render(){
+  let list = state.leads;
+  if(state.source !== 'all') list = list.filter(l => l.source === state.source);
+  if(state.q) list = list.filter(l => (l.title + ' ' + l.desc).toLowerCase().includes(state.q));
+
+  if(!list.length){
+    $grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><h2>Ничего не найдено</h2><p>Попробуй другой фильтр или обнови</p></div>`;
+    return;
+  }
+
+  $grid.innerHTML = list.map(l => {
+    const cls = scoreClass(l.score);
+    return `
+      <div class="card ${cls === 'hot' ? 'hot' : ''}">
+        <div class="card-top">
+          <div class="source">${esc(l.source)}</div>
+          <div class="score ${cls}">${scoreLabel(l.score)} · ${l.score}</div>
+        </div>
+        <h3><a href="${esc(l.link)}" target="_blank" rel="noopener">${esc(l.title)}</a></h3>
+        <div class="desc">${esc(l.desc)}</div>
+        <div class="card-foot">
+          <span>${timeAgo(l.date)}</span>
+          <a href="${esc(l.link)}" target="_blank" rel="noopener">Открыть →</a>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function load(){
+  $refresh.disabled = true;
+  renderSkeleton();
+  try {
+    const r = await fetch(API, { cache: 'no-store' });
+    const data = await r.json();
+    if(data.error) throw new Error(data.error);
+    state.leads = data.leads || [];
+    state.sources = data.sources || [];
+    const hot = state.leads.filter(l => l.score >= 6).length;
+    $meta.innerHTML = `Обновлено: <b>${new Date(data.updated).toLocaleTimeString('ru')}</b> · найдено <b>${state.leads.length}</b> · горячих <b>${hot}</b>`;
+    renderFilters();
+    render();
+  } catch(e){
+    $meta.innerHTML = `<span style="color:#ff6b6b">Ошибка: ${esc(e.message)}</span>`;
+    $grid.innerHTML = '';
+  } finally {
+    $refresh.disabled = false;
+  }
+}
+
+$q.addEventListener('input', e => { state.q = e.target.value.toLowerCase().trim(); render(); });
+$filters.addEventListener('click', e => {
+  const chip = e.target.closest('.chip');
+  if(!chip) return;
+  state.source = chip.dataset.src;
+  renderFilters();
+  render();
+});
+$refresh.addEventListener('click', load);
+
+load();
+setInterval(load, 5 * 60 * 1000);
+</script>
+</body>
+</html>
