@@ -220,26 +220,30 @@ out center ${limit};`;
 
 // Параллельно стучимся во все зеркала, берём первый успешный ответ
 async function overpass(query) {
-  const body = 'data=' + encodeURIComponent(query);
-  const headers = {
-    'User-Agent': UA,
-    'Content-Type': 'application/x-www-form-urlencoded',
-  };
+  const ua = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+  const endpoints = OVERPASS.map(ep => ep + '?data=' + encodeURIComponent(query));
 
-  const attempts = OVERPASS.map(endpoint =>
-    withTimeout(fetch(endpoint, { method: 'POST', headers, body }), 22000)
-      .then(r => {
-        if (!r.ok) throw new Error(endpoint + ' ' + r.status);
-        return r.json();
-      })
-      .then(d => d.elements || [])
-  );
+  const results = await Promise.allSettled(endpoints.map(async (url) => {
+    const r = await withTimeout(fetch(url, {
+      method: 'GET',
+      headers: {
+        'User-Agent': ua,
+        'Accept': 'application/json',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+    }), 22000);
+    if (!r.ok) throw new Error(r.status + ' ' + (await r.text()).slice(0, 80));
+    const d = await r.json();
+    return d.elements || [];
+  }));
 
-  try {
-    return await Promise.any(attempts);
-  } catch (e) {
-    throw new Error('все зеркала Overpass недоступны');
-  }
+  const errors = results
+    .map((r, i) => r.status === 'rejected' ? (OVERPASS[i].replace('https://','').split('/')[0] + ': ' + r.reason.message) : null)
+    .filter(Boolean);
+
+  const good = results.find(r => r.status === 'fulfilled' && r.value.length >= 0);
+  if (good) return good.value;
+  throw new Error(errors.join(' | ') || 'all failed');
 }
 
 function extract(elem) {
@@ -283,9 +287,15 @@ async function handleSearch(request) {
     debug.query = q.slice(0, 200);
 
     const t1 = Date.now();
-    const elements = await overpass(q);
-    debug.overpass_ms = Date.now() - t1;
-    debug.raw = elements.length;
+let elements = [];
+try {
+  elements = await overpass(q);
+} catch (err) {
+  debug.overpass_error = err.message;
+  throw err;
+}
+debug.overpass_ms = Date.now() - t1;
+debug.raw = elements.length;
 
     const leads = elements.map(extract).filter(Boolean);
     const seen = new Set();
