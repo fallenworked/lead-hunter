@@ -211,15 +211,15 @@ function buildOverpassQuery(city, niche) {
   if (!tags) {
     return `[out:json][timeout:25];
 (
-  node["name"~"${niche}","i"][!website][!contact:website](${around});
-  way["name"~"${niche}","i"][!website][!contact:website](${around});
+  node["name"~"${niche}","i"]["website"!~".*"]["contact:website"!~".*"](${around});
+  way["name"~"${niche}","i"]["website"!~".*"]["contact:website"!~".*"](${around});
 );
 out center 120;`;
   }
   let parts = '';
   for (const [k, v] of tags) {
-    parts += `node["${k}"="${v}"][!website][!contact:website](${around});`;
-    parts += `way["${k}"="${v}"][!website][!contact:website](${around});`;
+    parts += `node["${k}"="${v}"]["website"!~".*"]["contact:website"!~".*"](${around});`;
+    parts += `way["${k}"="${v}"]["website"!~".*"]["contact:website"!~".*"](${around});`;
   }
   return `[out:json][timeout:25];
 (${parts});
@@ -236,12 +236,17 @@ async function overpass(query) {
           headers: { 'User-Agent': UA, 'Content-Type': 'application/x-www-form-urlencoded' },
           body: 'data=' + encodeURIComponent(query),
         }),
-        28000
+        20000
       );
-      if (!r.ok) throw new Error(endpoint + ' ' + r.status);
+      if (!r.ok) {
+        const txt = await r.text();
+        throw new Error(endpoint + ' ' + r.status + ' ' + txt.slice(0, 100));
+      }
       const data = await r.json();
       return data.elements || [];
-    } catch (e) { lastErr = e; }
+    } catch (e) {
+      lastErr = e;
+    }
   }
   throw lastErr || new Error('overpass failed');
 }
