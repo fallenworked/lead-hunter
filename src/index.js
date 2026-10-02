@@ -6,6 +6,13 @@ export default {
   }
 };
 
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms)),
+  ]);
+}
+
 const RSS_SOURCES = [
   { url: 'https://freelance.habr.com/tasks.rss', name: 'Habr Freelance' },
   { url: 'https://www.fl.ru/rss/all.xml', name: 'FL.ru' },
@@ -121,64 +128,52 @@ function parseKwork(html, sourceName) {
   return leads;
 }
 
-async function getLeads() {
-  const tasks = [
-    ...RSS_SOURCES.map(s => fetchXML(s.url).then(x => parseRSS(x, s.name))),
-    ...KWORK_URLS.map(s => fetchKwork(s.url, s.name)),
-  ];
-
-  const results = await Promise.allSettled(tasks);
-  const all = results.flatMap(r => r.status === 'fulfilled' ? r.value : []);
-
-  const seen = new Set();
-  const unique = all.filter(l => {
-    const key = l.link.replace(/[?#].*$/, '');
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-
-  return unique
-    .map(l => ({ ...l, score: scoreLead(l) }))
-    .filter(l => l.score > 0)
-    .sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      return new Date(b.date || 0) - new Date(a.date || 0);
-    })
-    .slice(0, 150);
-}
-
 async function handleLeads(request) {
   const url = new URL(request.url);
-  const q = (url.searchParams.get('q') || '').toLowerCase().trim();
-  const src = url.searchParams.get('src') || 'all';
-
   const CORS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Content-Type': 'application/json; charset=utf-8',
   };
-
   if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
 
-  try {
-    const leads = await getLeads();
-    let filtered = leads;
-    if (src !== 'all') filtered = filtered.filter(l => l.source === src);
-    if (q) filtered = filtered.filter(l => (l.title + ' ' + l.desc).toLowerCase().includes(q));
+  const debug = {};
+  const test = async (name, fn) => {
+    const t0 = Date.now();
+    try {
+      const r = await withTimeout(fn(), 8000);
+      debug[name] = { ok: true, ms: Date.now() - t0, count: Array.isArray(r) ? r.length : 0 };
+      return r;
+    } catch (e) {
+      debug[name] = { ok: false, ms: Date.now() - t0, error: e.message };
+      return [];
+    }
+  };
 
-    return new Response(JSON.stringify({
-      count: filtered.length,
-      updated: new Date().toISOString(),
-      sources: [...new Set(leads.map(l => l.source))],
-      leads: filtered,
-    }), {
-      headers: { ...CORS, 'Cache-Control': 'public, max-age=300' },
-    });
-  } catch (e) {
-    return new Response(JSON.stringify({ error: e.message, leads: [] }), {
-      status: 500, headers: CORS,
-    });
-  }
+  const [habr, fl, kwork] = await Promise.all([
+    test('habr', () => fetchXML(RSS_SOURCES[0].url).then(x => parseRSS(x, RSS_SOURCES[0].name))),
+    test('fl', () => fetchXML(RSS_SOURCES[1].url).then(x => parseRSS(x, RSS_SOURCES[1].name))),
+    test('kwork', () => fetchKwork(KWORK_URLS[0].url, KWORK_URLS[0].name)),
+  ]);
+
+  const all = [...habr, ...fl, ...kwork];
+  const seen = new Set();
+  const unique = all.filter(l => {
+    const k = l.link.replace(/[?#].*$/, '');
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+
+  return new Response(JSON.stringify({
+    count: unique.length,
+    updated: new Date().toISOString(),
+    sources: [...new Set(unique.map(l => l.source))],
+    leads: unique.map(l => ({ ...l, score: scoreLead(l) }))
+      .filter(l => l.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 150),
+    debug,
+  }), { headers: CORS });
 }
