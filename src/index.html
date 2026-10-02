@@ -490,199 +490,248 @@ TER    .btn{width:100%}
 </div>
 
 <script>
-const API = '/api/search';
-const state = { leads: [], city: '', niche: '' };
-
-const $ = id => document.getElementById(id);
-const $grid = $('grid');
-const esc = s => String(s||'').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
-
-const PRESETS = ['стоматология','кафе','парикмахерская','автосервис','аптека','салон красоты','фитнес','юрист','пекарня','оптика','цветы','мебель','кофейня','ветклиника'];
-
-function preload(){
-  return new Promise(resolve => {
-    const bar = $('preloaderBar');
-    const pct = $('preloaderPct');
-    const status = $('preloaderStatus');
-    const steps = [
-      [0,  'инициализация системы'],
-      [15, 'загрузка модулей'],
-      [32, 'подключение к картам'],
-      [48, 'калибровка координат'],
-      [62, 'загрузка базы городов'],
-      [76, 'проверка источников'],
-      [88, 'финальная сборка'],
-      [100,'готово к работе'],
-    ];
-    let p = 0;
-    const tick = () => {
-      p += Math.random() * 8 + 3;
-      if(p > 100) p = 100;
-      bar.style.setProperty('--progress', p + '%');
-      pct.textContent = Math.floor(p) + '%';
-      const s = steps.filter(x => x[0] <= p).pop();
-      if(s) status.textContent = s[1];
-      if(p < 100){
-        setTimeout(tick, 80 + Math.random() * 120);
-      } else {
-        setTimeout(() => {
-          $('preloader').classList.add('hide');
-          $('app').classList.add('show');
-          setTimeout(resolve, 400);
-        }, 400);
-      }
-    };
-    setTimeout(tick, 300);
-  });
-}
-
-function renderPresets(){
-  $('presets').innerHTML = PRESETS.map(p =>
-    `<div class="preset" data-v="${esc(p)}">${esc(p)}</div>`
-  ).join('');
-}
-
-function renderSkeleton(){
-  $grid.innerHTML = Array(6).fill('<div class="skeleton"></div>').join('');
-}
-
-function animateNumber(el, target){
-  const start = parseInt(el.textContent) || 0;
-  const dur = 700;
-  const t0 = performance.now();
-  const tick = (t) => {
-    const k = Math.min(1, (t - t0) / dur);
-    const eased = 1 - Math.pow(1 - k, 3);
-    el.textContent = Math.floor(start + (target - start) * eased);
-    if(k < 1) requestAnimationFrame(tick);
-    else el.textContent = target;
-  };
-  requestAnimationFrame(tick);
-}
-
-function renderStats(data){
-  animateNumber($('s-total'), data.count || 0);
-  animateNumber($('s-phone'), data.withPhone || 0);
-  animateNumber($('s-addr'), data.withAddr || 0);
-  $('s-city').textContent = data.country && data.city ? data.city + ', ' + data.country : (data.city || '-');
-}
-
-function render(){
-  const leads = state.leads;
-  if(!leads.length){
-    $grid.innerHTML = `<div class="empty"><div class="empty-icon">∅</div><h2>Ничего не найдено</h2><p>Попробуй другую нишу или город</p></div>`;
-    return;
-  }
-  $grid.innerHTML = leads.map((l, i) => {
-    const hasPhone = !!l.phone;
-    const badge = hasPhone
-      ? '<div class="badge">✓ контакт</div>'
-      : '<div class="badge nocontact">только адрес</div>';
-    const phoneClean = (l.phone||'').replace(/[^\d+]/g, '');
-    const waLink = phoneClean ? `https://wa.me/${phoneClean.replace(/^\+?8/, '7')}` : '';
-    const yandexLink = `https://yandex.ru/maps/?text=${encodeURIComponent((l.name||'') + ' ' + (state.city||''))}`;
-    const gisLink = `https://2gis.ru/search/${encodeURIComponent(l.name + ' ' + state.city)}`;
-    const routeLink = l.lat && l.lon ? `https://yandex.ru/maps/?rtext=~${l.lat},${l.lon}` : '';
-    return `
-      <article class="card" style="animation-delay:${Math.min(i * 30, 400)}ms">
-        <div class="card-head">
-          <div style="flex:1;min-width:0">
-            <span class="card-idx">#${String(i+1).padStart(2,'0')}${l.type ? ' · ' + esc(l.type.toUpperCase()) : ''}</span>
-            <h3>${esc(l.name)}</h3>
-          </div>
-          ${badge}
-        </div>
-        <div class="contacts">
-          ${l.phone ? `<div class="contact-line">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.13.96.36 1.9.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0122 16.92z"/></svg>
-            <a href="tel:${esc(l.phone)}"><b>${esc(l.phone)}</b></a>
-          </div>` : ''}
-          ${l.email ? `<div class="contact-line">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 6l-10 7L2 6"/></svg>
-            <a href="mailto:${esc(l.email)}"><b>${esc(l.email)}</b></a>
-          </div>` : ''}
-          ${l.addr ? `<div class="contact-line">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-            <span>${esc(l.addr)}</span>
-          </div>` : ''}
-          ${l.opening ? `<div class="contact-line">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-            <span>${esc(l.opening)}</span>
-          </div>` : ''}
-          ${!l.phone && !l.email && !l.addr ? `<div class="contact-line"><span style="opacity:.5">контакты в OSM отсутствуют</span></div>` : ''}
-        </div>
-        <div class="contact-actions">
-          ${l.phone ? `<a class="primary" href="tel:${esc(l.phone)}">Позвонить</a>` : ''}
-          ${waLink ? `<a href="${waLink}" target="_blank" rel="noopener">WhatsApp</a>` : ''}
-          <a href="${yandexLink}" target="_blank" rel="noopener">Я.Карты</a>
-          <a href="${gisLink}" target="_blank" rel="noopener">2GIS</a>
-          ${routeLink ? `<a href="${routeLink}" target="_blank" rel="noopener">Маршрут</a>` : ''}
-        </div>
-      </article>
-    `;
-  }).join('');
-}
-
-async function search(){
-  const city = $('city').value.trim();
-  const niche = $('niche').value.trim();
-  if(!city || !niche){ alert('Заполни город и нишу'); return; }
-  state.city = city;
-  state.niche = niche;
-
-  $('go').disabled = true;
-  renderSkeleton();
-  $('info').innerHTML = `Ищу <b>«${esc(niche)}»</b> в <b>${esc(city)}</b>…`;
-
-  try {
-    const r = await fetch(`${API}?city=${encodeURIComponent(city)}&niche=${encodeURIComponent(niche)}&_=${Date.now()}`);
-    const data = await r.json();
-    if(data.error) throw new Error(data.error);
-    state.leads = data.leads || [];
-    renderStats(data);
-    $('info').innerHTML = `Найдено <b>${data.count}</b> клиентов · <b>${data.withPhone}</b> с телефоном · ${esc(data.city || city)} · обновлено ${new Date(data.updated).toLocaleTimeString('ru')}`;
-    render();
-  } catch(e){
-    $('info').innerHTML = `<span class="err">Ошибка: ${esc(e.message)}</span>`;
-    $grid.innerHTML = `<div class="empty"><h2>Не вышло</h2><p>${esc(e.message)}</p></div>`;
-  } finally {
-    $('go').disabled = false;
-  }
-}
-
-function exportCSV(){
-  if(!state.leads.length){ alert('Нечего экспортировать'); return; }
-  const esc = v => `"${String(v||'').replace(/"/g,'""')}"`;
-  const rows = [['Название','Телефон','Email','Адрес','Тип','Часы работы','Координаты','Карта']];
-  for(const l of state.leads){
-    rows.push([
-      l.name, l.phone, l.email, l.addr, l.type, l.opening,
-      l.lat && l.lon ? `${l.lat},${l.lon}` : '',
-      l.lat && l.lon ? ` },
-https://yandex.ru/maps/?pt=${l.lon},${l.lat}&z =17` : " '',
-    ]);
-  }
-  const csv =dev '\uFEFFD' + rows.mapependencies(r => r.map(esc).join(',')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `leadhunter_${state.niche}_${state.city}_${Date.now()}.csv`;
-  a.click();
-}
-
-$('go').addEventListener('click', search);
-$('csv').addEventListener('click', exportCSV);
-$('city').addEventListener('keydown', e => e.key === 'Enter' && search());
-$('niche').addEventListener('keydown', e => e.key === 'Enter' && search());
-$('presets').addEventListener('click', e => {
-  const el = e.target.closest('.preset');
-  if(!el) return;
-  $('niche').value = el.dataset.v;
-  search();
+// Глобальный перехватчик ошибок - если что-то упадёт, всё равно покажем сайт
+window.addEventListener('error', function(e){
+  console.error('JS error:', e.message);
+  var pl = document.getElementById('preloader');
+  var app = document.getElementById('app');
+  if(pl) pl.classList.add('hide');
+  if(app) app.classList.add('show');
+});
+window.addEventListener('unhandledrejection', function(e){
+  console.error('Promise error:', e.reason);
 });
 
-renderPresets();
-preload().then(() => search());
+(function(){
+  'use strict';
+
+  const API = '/api/search';
+  const state = { leads: [], city: '', niche: '' };
+
+  const $ = id => document.getElementById(id);
+  const $grid = $('grid');
+  const esc = s => String(s||'').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+
+  const PRESETS = ['стоматология','кафе','парикмахерская','автосервис','аптека','салон красоты','фитнес','юрист','пекарня','оптика','цветы','мебель','кофейня','ветклиника'];
+
+  // ═══ PRELOADER - гарантированно завершается ═══
+  function preload(){
+    return new Promise(function(resolve){
+      var pl = $('preloader');
+      var app = $('app');
+      var bar = $('preloaderBar');
+      var pct = $('preloaderPct');
+      var status = $('preloaderStatus');
+
+      function finish(){
+        if(pl) pl.classList.add('hide');
+        if(app) app.classList.add('show');
+        setTimeout(resolve, 400);
+      }
+
+      // Аварийный таймаут - максимум 4 секунды
+      var safety = setTimeout(finish, 4000);
+
+      if(!bar || !pct || !status){
+        clearTimeout(safety);
+        finish();
+        return;
+      }
+
+      var steps = [
+        [0,  'инициализация системы'],
+        [20, 'загрузка модулей'],
+        [40, 'подключение к картам'],
+        [60, 'загрузка базы городов'],
+        [80, 'финальная сборка'],
+        [100,'готово к работе'],
+      ];
+
+      var p = 0;
+      function step(){
+        p += 4;
+        if(p > 100) p = 100;
+        try {
+          bar.style.setProperty('--progress', p + '%');
+          pct.textContent = p + '%';
+          var s = steps.filter(function(x){ return x[0] <= p; }).pop();
+          if(s) status.textContent = s[1];
+        } catch(err){
+          console.error('preload step err', err);
+        }
+
+        if(p < 100){
+          setTimeout(step, 50);
+        } else {
+          clearTimeout(safety);
+          setTimeout(finish, 300);
+        }
+      }
+      step();
+    });
+  }
+
+  // ═══ UI ═══
+  function renderPresets(){
+    var el = $('presets');
+    if(!el) return;
+    el.innerHTML = PRESETS.map(function(p){
+      return '<div class="preset" data-v="' + esc(p) + '">' + esc(p) + '</div>';
+    }).join('');
+  }
+
+  function renderSkeleton(){
+    if(!$grid) return;
+    $grid.innerHTML = new Array(6).fill('<div class="skeleton"></div>').join('');
+  }
+
+  function animateNumber(el, target){
+    if(!el) return;
+    var start = parseInt(el.textContent) || 0;
+    var dur = 700;
+    var t0 = performance.now();
+    function tick(t){
+      var k = Math.min(1, (t - t0) / dur);
+      var eased = 1 - Math.pow(1 - k, 3);
+      el.textContent = Math.floor(start + (target - start) * eased);
+      if(k < 1) requestAnimationFrame(tick);
+      else el.textContent = target;
+    }
+    requestAnimationFrame(tick);
+  }
+
+  function renderStats(data){
+    animateNumber($('s-total'), data.count || 0);
+    animateNumber($('s-phone'), data.withPhone || 0);
+    animateNumber($('s-addr'), data.withAddr || 0);
+    var sc = $('s-city');
+    if(sc) sc.textContent = data.country && data.city ? data.city + ', ' + data.country : (data.city || '-');
+  }
+
+  function render(){
+    if(!$grid) return;
+    var leads = state.leads;
+    if(!leads.length){
+      $grid.innerHTML = '<div class="empty"><div class="empty-icon">∅</div><h2>Ничего не найдено</h2><p>Попробуй другую нишу или город</p></div>';
+      return;
+    }
+    $grid.innerHTML = leads.map(function(l, i){
+      var hasPhone = !!l.phone;
+      var badge = hasPhone
+        ? '<div class="badge">✓ контакт</div>'
+        : '<div class="badge nocontact">только адрес</div>';
+      var phoneClean = (l.phone||'').replace(/[^\d+]/g, '');
+      var waLink = phoneClean ? 'https://wa.me/' + phoneClean.replace(/^\+?8/, '7') : '';
+      var yandexLink = 'https://yandex.ru/maps/?text=' + encodeURIComponent((l.name||'') + ' ' + (state.city||''));
+      var gisLink = 'https://2gis.ru/search/' + encodeURIComponent(l.name + ' ' + state.city);
+      var routeLink = l.lat && l.lon ? 'https://yandex.ru/maps/?rtext=~' + l.lat + ',' + l.lon : '';
+      return '<article class="card" style="animation-delay:' + Math.min(i * 30, 400) + 'ms">' +
+        '<div class="card-head">' +
+          '<div style="flex:1;min-width:0">' +
+            '<span class="card-idx">#' + String(i+1).padStart(2,'0') + (l.type ? ' · ' + esc(l.type.toUpperCase()) : '') + '</span>' +
+            '<h3>' + esc(l.name) + '</h3>' +
+          '</div>' +
+          badge +
+        '</div>' +
+        '<div class="contacts">' +
+          (l.phone ? '<div class="contact-line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.13.96.36 1.9.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0122 16.92z"/></svg><a href="tel:' + esc(l.phone) + '"><b>' + esc(l.phone) + '</b></a></div>' : '') +
+          (l.email ? '<div class="contact-line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 6l-10 7L2 6"/></svg><a href="mailto:' + esc(l.email) + '"><b>' + esc(l.email) + '</b></a></div>' : '') +
+          (l.addr ? '<div class="contact-line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg><span>' + esc(l.addr) + '</span></div>' : '') +
+          (l.opening ? '<div class="contact-line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>' + esc(l.opening) + '</span></div>' : '') +
+          (!l.phone && !l.email && !l.addr ? '<div class="contact-line"><span style="opacity:.5">контакты в OSM отсутствуют</span></div>' : '') +
+        '</div>' +
+        '<div class="contact-actions">' +
+          (l.phone ? '<a class="primary" href="tel:' + esc(l.phone) + '">Позвонить</a>' : '') +
+          (waLink ? '<a href="' + waLink + '" target="_blank" rel="noopener">WhatsApp</a>' : '') +
+          '<a href="' + yandexLink + '" target="_blank" rel="noopener">Я.Карты</a>' +
+          '<a href="' + gisLink + '" target="_blank" rel="noopener">2GIS</a>' +
+          (routeLink ? '<a href="' + routeLink + '" target="_blank" rel="noopener">Маршрут</a>' : '') +
+        '</div>' +
+      '</article>';
+    }).join('');
+  }
+
+  async function search(){
+    var cityEl = $('city');
+    var nicheEl = $('niche');
+    if(!cityEl || !nicheEl) return;
+    var city = cityEl.value.trim();
+    var niche = nicheEl.value.trim();
+    if(!city || !niche){ alert('Заполни город и нишу'); return; }
+    state.city = city;
+    state.niche = niche;
+
+    var goBtn = $('go');
+    if(goBtn) goBtn.disabled = true;
+    renderSkeleton();
+    var infoEl = $('info');
+    if(infoEl) infoEl.innerHTML = 'Ищу <b>«' + esc(niche) + '»</b> в <b>' + esc(city) + '</b>…';
+
+    try {
+      var r = await fetch(API + '?city=' + encodeURIComponent(city) + '&niche=' + encodeURIComponent(niche) + '&_=' + Date.now());
+      var data = await r.json();
+      if(data.error) throw new Error(data.error);
+      state.leads = data.leads || [];
+      renderStats(data);
+      if(infoEl) infoEl.innerHTML = 'Найдено <b>' + data.count + '</b> клиентов · <b>' + data.withPhone + '</b> с телефоном · ' + esc(data.city || city) + ' · обновлено ' + new Date(data.updated).toLocaleTimeString('ru');
+      render();
+    } catch(e){
+      if(infoEl) infoEl.innerHTML = '<span class="err">Ошибка: ' + esc(e.message) + '</span>';
+      if($grid) $grid.innerHTML = '<div class="empty"><h2>Не вышло</h2><p>' + esc(e.message) + '</p></div>';
+    } finally {
+      if(goBtn) goBtn.disabled = false;
+    }
+  }
+
+  function exportCSV(){
+    if(!state.leads.length){ alert('Нечего экспортировать'); return; }
+    var esc2 = function(v){ return '"' + String(v||'').replace(/"/g,'""') + '"'; };
+    var rows = [['Название','Телефон','Email','Адрес','Тип','Часы работы','Координаты','Карта']];
+    for(var i=0; i<state.leads.length; i++){
+      var l = state.leads[i];
+      rows.push([
+        l.name, l.phone, l.email, l.addr, l.type, l.opening,
+        l.lat && l.lon ? l.lat + ',' + l.lon : '',
+        l.lat && l.lon ? 'https://yandex.ru/maps/?pt=' + l.lon + ',' + l.lat + '&z=17' : '',
+      ]);
+    }
+    var csv = '\uFEFF' + rows.map(function(r){ return r.map(esc2).join(','); }).join('\n');
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'leadhunter_' + state.niche + '_' + state.city + '_' + Date.now() + '.csv';
+    a.click();
+  }
+
+  // Bind events
+  var goBtn = $('go');
+  var csvBtn = $('csv');
+  var cityEl = $('city');
+  var nicheEl = $('niche');
+  var presetsEl = $('presets');
+
+  if(goBtn) goBtn.addEventListener('click', search);
+  if(csvBtn) csvBtn.addEventListener('click', exportCSV);
+  if(cityEl) cityEl.addEventListener('keydown', function(e){ if(e.key === 'Enter') search(); });
+  if(nicheEl) nicheEl.addEventListener('keydown', function(e){ if(e.key === 'Enter') search(); });
+  if(presetsEl) presetsEl.addEventListener('click', function(e){
+    var el = e.target.closest('.preset');
+    if(!el) return;
+    if(nicheEl) nicheEl.value = el.dataset.v;
+    search();
+  });
+
+  // Запуск
+  renderPresets();
+  preload().then(search).catch(function(err){
+    console.error('boot err', err);
+    var pl = $('preloader');
+    var app = $('app');
+    if(pl) pl.classList.add('hide');
+    if(app) app.classList.add('show');
+    search();
+  });
+})();
 </script>
 </body>
 </html>
