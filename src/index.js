@@ -201,17 +201,17 @@ async function geocode(city) {
 function buildOverpassQuery(city, niche) {
   const around = `around:${Math.min(city.r, 8000)},${city.lat},${city.lon}`;
   const tags = NICHES[niche.toLowerCase().trim()];
-  const limit = 40;
+  const limit = 120;
 
   if (!tags) {
     return `[out:json][timeout:15];
-node["name"~"${niche}","i"]["website"!~".*"](${around});
+node["name"~"${niche}","i"](${around});
 out center ${limit};`;
   }
 
   let parts = '';
   for (const [k, v] of tags) {
-    parts += `node["${k}"="${v}"]["website"!~".*"](${around});`;
+    parts += `node["${k}"="${v}"](${around});`;
   }
   return `[out:json][timeout:15];
 (${parts});
@@ -235,13 +235,11 @@ async function overpass(query) {
     return d.elements || [];
   };
 
-  // Раунд 1: параллельно все зеркала
   let results = await Promise.allSettled(OVERPASS.map(attempt));
   for (const r of results) {
     if (r.status === 'fulfilled') return r.value;
   }
 
-  // Раунд 2: короткая пауза, retry
   await new Promise(res => setTimeout(res, 1800));
   results = await Promise.allSettled(OVERPASS.map(attempt));
   const errors = [];
@@ -260,6 +258,7 @@ function extract(elem) {
   const lat = elem.lat ?? elem.center?.lat;
   const lon = elem.lon ?? elem.center?.lon;
   const addr = [t['addr:street'], t['addr:housenumber']].filter(Boolean).join(' ');
+  const site = t.website || t['contact:website'] || '';
   return {
     id: elem.id,
     name,
@@ -268,6 +267,8 @@ function extract(elem) {
     addr,
     lat, lon,
     opening: t.opening_hours || '',
+    site,
+    hasSite: !!site,
     type: t.amenity || t.shop || t.office || t.healthcare || t.leisure || t.tourism || '',
   };
 }
@@ -304,8 +305,13 @@ async function handleSearch(request) {
     debug.raw = elements.length;
 
     const leads = elements.map(extract).filter(Boolean);
+    debug.parsed = leads.length;
+
+    const noSite = leads.filter(l => !l.hasSite);
+    debug.no_site = noSite.length;
+
     const seen = new Set();
-    const unique = leads.filter(l => {
+    const unique = noSite.filter(l => {
       const k = l.name.toLowerCase() + '|' + (l.lat?.toFixed(3) || '');
       if (seen.has(k)) return false;
       seen.add(k);
