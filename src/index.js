@@ -1,9 +1,17 @@
 import html from './index.html';
 import logo from './logo.png';
+import styleCss from './style.css';
+import scriptJs from './script.js';
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (url.pathname === '/style.css') {
+      return new Response(styleCss, { headers: { 'Content-Type': 'text/css; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
+    }
+    if (url.pathname === '/script.js') {
+      return new Response(scriptJs, { headers: { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
+    }
     if (url.pathname === '/api/auth/register') return handleRegister(request, env);
     if (url.pathname === '/api/auth/login') return handleLogin(request, env);
     if (url.pathname === '/api/auth/logout') return handleLogout(request, env);
