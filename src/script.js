@@ -262,6 +262,46 @@
   }
   function closeAuth(){ var m = $('authModal'); if(m) m.classList.remove('show'); }
 
+  function startGoogleAuth(){
+    window.location.href = '/api/auth/google/start';
+  }
+
+  function startTelegramAuth(){
+    var botId = '8936848577';
+    var origin = window.location.origin;
+    var returnTo = window.location.origin + '/?auth=telegram';
+    var url = 'https://oauth.telegram.org/auth?bot_id=' + botId +
+      '&origin=' + encodeURIComponent(origin) +
+      '&request_access=write' +
+      '&return_to=' + encodeURIComponent(returnTo);
+    var w = 550, h = 500;
+    var left = Math.max(0, (window.screen.width - w) / 2);
+    var top = Math.max(0, (window.screen.height - h) / 2);
+    var popup = window.open(url, 'tg_auth', 'width=' + w + ',height=' + h + ',left=' + left + ',top=' + top);
+    if(!popup || popup.closed) alert('Разреши всплывающие окна для входа через Telegram');
+  }
+
+  window.addEventListener('message', function(event){
+    if(event.origin !== 'https://oauth.telegram.org') return;
+    var data = event.data;
+    if(!data) return;
+    if(typeof data === 'string'){
+      try { data = JSON.parse(data); } catch(e){ return; }
+    }
+    if(!data.id || !data.hash) return;
+    fetch('/api/auth/telegram', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    }).then(function(r){ return r.json(); }).then(function(res){
+      if(res.error){ alert('Ошибка входа: ' + res.error); return; }
+      closeAuth();
+      refreshMe().then(function(){ if(state.user) doSearch(); });
+    }).catch(function(e){
+      alert('Ошибка сети: ' + e.message);
+    });
+  });
+
   function openDrawer(){
     var d = $('drawer'), b = $('burger');
     if(!d) return;
@@ -955,6 +995,8 @@
     var authClose = $('authModalClose'), authBg = $('authModalBg');
     var authForm = $('authForm'), authSwitch = $('authSwitchLink');
     var drawerNav = $('drawerNav');
+    var oauthGoogle = $('oauthGoogle');
+    var oauthTelegram = $('oauthTelegram');
     if(navLogin) navLogin.addEventListener('click', function(){ openAuth('login'); });
     if(burger) burger.addEventListener('click', function(){
       var d = $('drawer');
@@ -973,6 +1015,8 @@
     if(authBg) authBg.addEventListener('click', closeAuth);
     if(authForm) authForm.addEventListener('submit', submitAuth);
     if(authSwitch) authSwitch.addEventListener('click', function(){ openAuth(authMode === 'login' ? 'register' : 'login'); });
+    if(oauthGoogle) oauthGoogle.addEventListener('click', startGoogleAuth);
+    if(oauthTelegram) oauthTelegram.addEventListener('click', startTelegramAuth);
     document.addEventListener('keydown', function(e){
       if(e.key === 'Escape'){ closeAuth(); closePlans(); closeAI(); closeDrawer(); closeHistory(); closeFavorites(); closeProfile(); }
     });
