@@ -270,25 +270,29 @@
     authMode = mode || 'login';
     var m = $('authModal');
     if(!m) return;
-    $('authMsg').textContent = '';
-    $('authMsg').className = 'modal-msg';
-    if(authMode === 'login'){
-      $('authTitle').textContent = 'Вход';
-      $('authSub').textContent = 'Войди чтобы искать клиентов';
-      $('authSubmit').textContent = 'Войти';
-      $('authSwitchText').textContent = 'Нет аккаунта?';
-      $('authSwitchLink').textContent = 'Регистрация';
-    } else {
-      $('authTitle').textContent = 'Регистрация';
-      $('authSub').textContent = 'Создай аккаунт - бесплатно';
-      $('authSubmit').textContent = 'Создать аккаунт';
-      $('authSwitchText').textContent = 'Уже есть аккаунт?';
-      $('authSwitchLink').textContent = 'Войти';
-    }
     closeDrawer();
     m.classList.add('show');
   }
   function closeAuth(){ var m = $('authModal'); if(m) m.classList.remove('show'); }
+
+  function startGoogleAuth(){
+    window.location.href = '/api/auth/google/start';
+  }
+
+  function startTelegramAuth(){
+    var botId = '8936848577';
+    var origin = window.location.origin;
+    var returnTo = window.location.origin + '/?auth=telegram';
+    var url = 'https://oauth.telegram.org/auth?bot_id=' + botId +
+      '&origin=' + encodeURIComponent(origin) +
+      '&request_access=write' +
+      '&return_to=' + encodeURIComponent(returnTo);
+    var w = 550, h = 500;
+    var left = Math.max(0, (window.screen.width - w) / 2);
+    var top = Math.max(0, (window.screen.height - h) / 2);
+    var popup = window.open(url, 'tg_auth', 'width=' + w + ',height=' + h + ',left=' + left + ',top=' + top);
+    if(!popup || popup.closed) alert('Разреши всплывающие окна для входа через Telegram');
+  }
 
   function openDrawer(){
     var d = $('drawer'), b = $('burger');
@@ -356,7 +360,7 @@
       proCta.disabled = true;
       proCta.style.background = 'transparent';
       proCta.style.color = 'var(--ok)';
-      proCta.style.border = '1px solid rgba(34,197,139,.3)';
+      proCta.style.border = '1px solid rgba(74,222,128,.3)';
       proCta.style.boxShadow = 'none';
       proCta.style.cursor = 'default';
       proCta.style.transform = 'none';
@@ -625,37 +629,6 @@
         el = el.parentNode;
       }
     });
-  }
-
-  function submitAuth(){
-    var email = $('authEmail').value.trim();
-    var password = $('authPassword').value;
-    var msg = $('authMsg'), btn = $('authSubmit');
-    if(!email || !password){ msg.textContent = 'Заполни поля'; msg.className = 'modal-msg err'; return; }
-    btn.disabled = true;
-    msg.textContent = 'Отправка…'; msg.className = 'modal-msg';
-    var endpoint = authMode === 'login' ? '/api/auth/login' : '/api/auth/register';
-    fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email, password: password })
-    }).then(function(r){ return r.json().then(function(d){ return { ok: r.ok, data: d }; }); })
-      .then(function(res){
-        btn.disabled = false;
-        if(!res.ok){ msg.textContent = res.data.error || 'Ошибка'; msg.className = 'modal-msg err'; return; }
-        state.user = res.data.user;
-        state.limit = res.data.limit || 3;
-        state.resultLimit = res.data.result_limit || 10;
-        if(state.user.plan === 'pro'){ loadFavorites(); }
-        updateNavUI();
-        msg.textContent = 'Готово!'; msg.className = 'modal-msg ok';
-        setTimeout(function(){ closeAuth(); doSearch(); }, 400);
-      })
-      .catch(function(e){
-        btn.disabled = false;
-        msg.textContent = 'Ошибка сети: ' + e.message;
-        msg.className = 'modal-msg err';
-      });
   }
 
   function logout(){
@@ -996,157 +969,7 @@
     if(close) close.addEventListener('click', closeFavorites);
     if(exportBtn) exportBtn.addEventListener('click', exportFavoritesCSV);
   }
-  var ONB_KEY = 'lh_onb_done_v1';
 
-  var ONB_STEPS = [
-    {
-      target: '.panel',
-      title: 'Выбери город и нишу',
-      text: 'Введи город и нишу (например <b>Казань</b> + <b>кафе</b>). Можно выбрать готовый пресет из подсказок ниже.'
-    },
-    {
-      target: '#go',
-      title: 'Нажми «Найти клиентов»',
-      text: 'Через 3-10 секунд получишь список бизнесов, у которых <b>нет сайта</b>, с телефонами и адресами.'
-    },
-    {
-      target: '#grid',
-      title: 'Работай с базой',
-      text: 'На каждой карточке есть кнопки <b>Позвонить</b>, <b>WhatsApp</b>, <b>Я.Карты</b>. В PRO можно ставить ☆ и сохранять в избранное.'
-    },
-    {
-      target: '.burger',
-      title: 'Всё в меню',
-      text: 'Открой бургер-меню справа: <b>AI Агент</b> (помощник продаж), <b>История</b>, <b>Избранное</b>, <b>Профиль</b>. Всё это доступно в PRO-подписке.',
-      force: 'burger'
-    }
-  ];
-
-  var onbStep = 0;
-  var onbVisible = false;
-
-  function shouldShowOnboarding(){
-    try {
-      if(localStorage.getItem(ONB_KEY)) return false;
-    } catch(e){}
-    return true;
-  }
-
-  function markOnboardingDone(){
-    try { localStorage.setItem(ONB_KEY, '1'); } catch(e){}
-  }
-
-  function openOnboarding(){
-    if(!shouldShowOnboarding()) return;
-    onbStep = 0;
-    onbVisible = true;
-    var m = $('onbModal');
-    if(!m) return;
-    m.classList.add('show');
-    setTimeout(function(){ renderOnbStep(); }, 400);
-  }
-
-  function closeOnboarding(){
-    onbVisible = false;
-    markOnboardingDone();
-    var m = $('onbModal');
-    if(m) m.classList.remove('show');
-  }
-
-  function renderOnbStep(){
-    if(!onbVisible) return;
-    var step = ONB_STEPS[onbStep];
-    if(!step){ closeOnboarding(); return; }
-
-    var stepEl = $('onbStep');
-    var titleEl = $('onbTitle');
-    var textEl = $('onbText');
-    var nextBtn = $('onbNext');
-    var tip = $('onbTip');
-    var spot = $('onbSpot');
-    if(!stepEl || !tip || !spot) return;
-
-    stepEl.textContent = 'Шаг ' + (onbStep + 1) + ' из ' + ONB_STEPS.length;
-    titleEl.textContent = step.title;
-    textEl.innerHTML = step.text;
-    nextBtn.textContent = onbStep === ONB_STEPS.length - 1 ? 'Готово ✓' : 'Далее →';
-
-    // Особый случай: подсветить бургер и открыть drawer визуально
-    var target;
-    if(step.force === 'burger'){
-      target = document.querySelector('.burger');
-    } else {
-      target = document.querySelector(step.target);
-    }
-    if(!target){
-      // Пропустить шаг если элемента нет
-      onbStep++;
-      renderOnbStep();
-      return;
-    }
-
-    var rect = target.getBoundingClientRect();
-    var pad = 10;
-    spot.style.left = (rect.left - pad) + 'px';
-    spot.style.top = (rect.top - pad) + 'px';
-    spot.style.width = (rect.width + pad * 2) + 'px';
-    spot.style.height = (rect.height + pad * 2) + 'px';
-
-    // Позиционируем тултип
-    var tipW = 380;
-    var tipH = tip.offsetHeight || 200;
-    var winW = window.innerWidth;
-    var winH = window.innerHeight;
-    var tipLeft, tipTop;
-
-    // Пробуем разместить снизу
-    if(rect.bottom + tipH + 20 < winH){
-      tipTop = rect.bottom + pad + 12;
-      tipLeft = rect.left + rect.width / 2 - tipW / 2;
-    } else if(rect.top - tipH - 20 > 0){
-      // Сверху
-      tipTop = rect.top - pad - tipH - 12;
-      tipLeft = rect.left + rect.width / 2 - tipW / 2;
-    } else {
-      // По центру внизу экрана
-      tipTop = winH - tipH - 24;
-      tipLeft = winW / 2 - tipW / 2;
-    }
-
-    // Ограничиваем по краям
-    if(tipLeft < 16) tipLeft = 16;
-    if(tipLeft + tipW > winW - 16) tipLeft = winW - tipW - 16;
-    if(tipTop < 16) tipTop = 16;
-    if(tipTop + tipH > winH - 16) tipTop = winH - tipH - 16;
-
-    tip.style.left = tipLeft + 'px';
-    tip.style.top = tipTop + 'px';
-    tip.style.maxWidth = Math.min(380, winW - 32) + 'px';
-  }
-
-  function nextOnbStep(){
-    onbStep++;
-    if(onbStep >= ONB_STEPS.length){ closeOnboarding(); return; }
-    renderOnbStep();
-  }
-
-  function bindOnboarding(){
-    var nextBtn = $('onbNext');
-    var skipBtn = $('onbSkip');
-    var bg = $('onbBg');
-    if(nextBtn) nextBtn.addEventListener('click', nextOnbStep);
-    if(skipBtn) skipBtn.addEventListener('click', closeOnboarding);
-    if(bg) bg.addEventListener('click', closeOnboarding);
-    document.addEventListener('keydown', function(e){
-      if(e.key === 'Escape' && onbVisible) closeOnboarding();
-      if(e.key === 'ArrowRight' && onbVisible) nextOnbStep();
-    });
-    window.addEventListener('resize', function(){
-      if(onbVisible) renderOnbStep();
-    });
-  }
-
-  
   function openProfile(){
     closeDrawer();
     setTimeout(function(){
@@ -1263,6 +1086,93 @@
     if(delFinal) delFinal.addEventListener('click', deleteAccount);
   }
 
+  var ONB_KEY = 'lh_onb_done_v1';
+  var ONB_STEPS = [
+    { target: '.panel', title: 'Выбери город и нишу', text: 'Введи город и нишу (например <b>Казань</b> + <b>кафе</b>). Можно выбрать готовый пресет из подсказок ниже.' },
+    { target: '#go', title: 'Нажми «Найти клиентов»', text: 'Через 3-10 секунд получишь список бизнесов, у которых <b>нет сайта</b>, с телефонами и адресами.' },
+    { target: '#grid', title: 'Работай с базой', text: 'На каждой карточке есть кнопки <b>Позвонить</b>, <b>WhatsApp</b>, <b>Я.Карты</b>. В PRO можно ставить ☆ и сохранять в избранное.' },
+    { target: '.burger', title: 'Всё в меню', text: 'Открой бургер-меню справа: <b>AI Агент</b> (помощник продаж), <b>История</b>, <b>Избранное</b>, <b>Профиль</b>. Всё это в PRO-подписке.', force: 'burger' }
+  ];
+  var onbStep = 0;
+  var onbVisible = false;
+
+  function shouldShowOnboarding(){
+    try { if(localStorage.getItem(ONB_KEY)) return false; } catch(e){}
+    return true;
+  }
+  function markOnboardingDone(){
+    try { localStorage.setItem(ONB_KEY, '1'); } catch(e){}
+  }
+  function openOnboarding(){
+    if(!shouldShowOnboarding()) return;
+    onbStep = 0;
+    onbVisible = true;
+    var m = $('onbModal');
+    if(!m) return;
+    m.classList.add('show');
+    setTimeout(function(){ renderOnbStep(); }, 400);
+  }
+  function closeOnboarding(){
+    onbVisible = false;
+    markOnboardingDone();
+    var m = $('onbModal');
+    if(m) m.classList.remove('show');
+  }
+  function renderOnbStep(){
+    if(!onbVisible) return;
+    var step = ONB_STEPS[onbStep];
+    if(!step){ closeOnboarding(); return; }
+    var stepEl = $('onbStep'), titleEl = $('onbTitle'), textEl = $('onbText'), nextBtn = $('onbNext');
+    var tip = $('onbTip'), spot = $('onbSpot');
+    if(!stepEl || !tip || !spot) return;
+    stepEl.textContent = 'Шаг ' + (onbStep + 1) + ' из ' + ONB_STEPS.length;
+    titleEl.textContent = step.title;
+    textEl.innerHTML = step.text;
+    nextBtn.textContent = onbStep === ONB_STEPS.length - 1 ? 'Готово ✓' : 'Далее →';
+    var target = step.force === 'burger' ? document.querySelector('.burger') : document.querySelector(step.target);
+    if(!target){ onbStep++; renderOnbStep(); return; }
+    var rect = target.getBoundingClientRect();
+    var pad = 10;
+    spot.style.left = (rect.left - pad) + 'px';
+    spot.style.top = (rect.top - pad) + 'px';
+    spot.style.width = (rect.width + pad * 2) + 'px';
+    spot.style.height = (rect.height + pad * 2) + 'px';
+    var tipW = 380, tipH = tip.offsetHeight || 200;
+    var winW = window.innerWidth, winH = window.innerHeight;
+    var tipLeft, tipTop;
+    if(rect.bottom + tipH + 20 < winH){ tipTop = rect.bottom + pad + 12; tipLeft = rect.left + rect.width / 2 - tipW / 2; }
+    else if(rect.top - tipH - 20 > 0){ tipTop = rect.top - pad - tipH - 12; tipLeft = rect.left + rect.width / 2 - tipW / 2; }
+    else { tipTop = winH - tipH - 24; tipLeft = winW / 2 - tipW / 2; }
+    if(tipLeft < 16) tipLeft = 16;
+    if(tipLeft + tipW > winW - 16) tipLeft = winW - tipW - 16;
+    if(tipTop < 16) tipTop = 16;
+    if(tipTop + tipH > winH - 16) tipTop = winH - tipH - 16;
+    tip.style.left = tipLeft + 'px';
+    tip.style.top = tipTop + 'px';
+    tip.style.maxWidth = Math.min(380, winW - 32) + 'px';
+  }
+  function nextOnbStep(){
+    onbStep++;
+    if(onbStep >= ONB_STEPS.length){ closeOnboarding(); return; }
+    renderOnbStep();
+  }
+  function forceOnboarding(){
+    try { localStorage.removeItem(ONB_KEY); } catch(e){}
+    closeDrawer();
+    setTimeout(openOnboarding, 250);
+  }
+  function bindOnboarding(){
+    var nextBtn = $('onbNext'), skipBtn = $('onbSkip'), bg = $('onbBg');
+    if(nextBtn) nextBtn.addEventListener('click', nextOnbStep);
+    if(skipBtn) skipBtn.addEventListener('click', closeOnboarding);
+    if(bg) bg.addEventListener('click', closeOnboarding);
+    document.addEventListener('keydown', function(e){
+      if(e.key === 'Escape' && onbVisible) closeOnboarding();
+      if(e.key === 'ArrowRight' && onbVisible) nextOnbStep();
+    });
+    window.addEventListener('resize', function(){ if(onbVisible) renderOnbStep(); });
+  }
+
   function handleAction(action){
     if(action === 'login'){ closeDrawer(); setTimeout(function(){ openAuth('login'); }, 250); return; }
     if(action === 'logout'){ logout(); return; }
@@ -1271,6 +1181,7 @@
     if(action === 'favorites'){ openFavorites(); return; }
     if(action === 'history'){ openHistory(); return; }
     if(action === 'profile'){ openProfile(); return; }
+    if(action === 'tutorial'){ forceOnboarding(); return; }
     if(action === 'settings'){ closeDrawer(); setTimeout(function(){ alert('Настройки в разработке'); }, 250); return; }
     if(action === 'support'){ closeDrawer(); setTimeout(function(){ alert('Поддержка: напиши в Telegram-канал сервиса'); }, 250); return; }
     if(action === 'about'){ closeDrawer(); setTimeout(function(){ alert('Lead Hunter - поиск бизнесов без сайта.\nДанные OpenStreetMap.\nВерсия 1.0'); }, 250); return; }
@@ -1293,8 +1204,9 @@
     var navLogin = $('navLogin');
     var burger = $('burger'), drawerBg = $('drawerBg'), drawerClose = $('drawerClose');
     var authClose = $('authModalClose'), authBg = $('authModalBg');
-    var authForm = $('authForm'), authSwitch = $('authSwitchLink');
     var drawerNav = $('drawerNav');
+    var oauthGoogle = $('oauthGoogle');
+    var oauthTelegram = $('oauthTelegram');
     if(navLogin) navLogin.addEventListener('click', function(){ openAuth('login'); });
     if(burger) burger.addEventListener('click', function(){
       var d = $('drawer');
@@ -1311,14 +1223,14 @@
     });
     if(authClose) authClose.addEventListener('click', closeAuth);
     if(authBg) authBg.addEventListener('click', closeAuth);
-    if(authForm) authForm.addEventListener('submit', submitAuth);
-    if(authSwitch) authSwitch.addEventListener('click', function(){ openAuth(authMode === 'login' ? 'register' : 'login'); });
+    if(oauthGoogle) oauthGoogle.addEventListener('click', startGoogleAuth);
+    if(oauthTelegram) oauthTelegram.addEventListener('click', startTelegramAuth);
     document.addEventListener('keydown', function(e){
       if(e.key === 'Escape'){ closeAuth(); closePlans(); closeAI(); closeDrawer(); closeHistory(); closeFavorites(); closeProfile(); }
     });
   }
 
-    bind();
+  bind();
   bindPlans();
   bindAI();
   bindHistory();
@@ -1327,8 +1239,6 @@
   bindOnboarding();
   renderPresets();
   preload().then(refreshMe).then(function(){
-    setTimeout(function(){
-      if(state.user) openOnboarding();
-    }, 800);
+    setTimeout(function(){ openOnboarding(); }, 800);
   });
 })();
