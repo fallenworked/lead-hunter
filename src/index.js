@@ -28,6 +28,10 @@ export default {
     if (url.pathname === '/api/favorites/remove') return handleFavRemove(request, env);
     if (url.pathname === '/api/profile/password') return handleChangePassword(request, env);
     if (url.pathname === '/api/profile/delete') return handleDeleteAccount(request, env);
+    if (url.pathname === '/terms') return new Response(termsPage(), { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=86400' } });
+    if (url.pathname === '/privacy') return new Response(privacyPage(), { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=86400' } });
+    if (url.pathname === '/refund') return new Response(refundPage(), { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=86400' } });
+    if (url.pathname === '/offer') return new Response(offerPage(), { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=86400' } });
     if (url.pathname === '/logo.png') {
       return new Response(logo, { headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' } });
     }
