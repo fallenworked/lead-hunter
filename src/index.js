@@ -34,6 +34,9 @@ export default {
     if (url.pathname === '/privacy') return new Response(privacyPage(), { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=86400' } });
     if (url.pathname === '/refund') return new Response(refundPage(), { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=86400' } });
     if (url.pathname === '/offer') return new Response(offerPage(), { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=86400' } });
+    if (url.pathname === '/api/auth/telegram') return handleTelegramAuth(request, env);
+    if (url.pathname === '/api/auth/google/start') return handleGoogleStart(request, env);
+    if (url.pathname === '/api/auth/google/callback') return handleGoogleCallback(request, env);
     if (url.pathname === '/logo.png') {
       return new Response(logo, { headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' } });
     }
