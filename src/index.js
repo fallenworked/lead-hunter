@@ -22,6 +22,7 @@ export default {
     if (url.pathname === '/api/ai/limit') return handleAILimit(request, env);
     if (url.pathname === '/api/history') return handleHistory(request, env);
     if (url.pathname === '/api/history/update') return handleHistoryUpdate(request, env);
+    if (url.pathname === '/api/history/update') return handleHistoryUpdate(request, env);
     if (url.pathname === '/logo.png') {
       return new Response(logo, { headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' } });
     }
