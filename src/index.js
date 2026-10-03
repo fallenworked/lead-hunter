@@ -403,7 +403,13 @@ async function handleLocate(request, env) {
   await env.DB.prepare(
     'UPDATE users SET searches_today = ?, last_search_date = ? WHERE id = ?'
   ).bind(newCount, todayStr, u.user_id).run();
-
+  
+  try {
+    await env.DB.prepare(
+      'INSERT INTO search_history (user_id, city, niche, created_at) VALUES (?, ?, ?, ?)'
+    ).bind(u.user_id, cityInfo.n, niche, Date.now()).run();
+  } catch (e) { console.error('history insert failed', e.message); }
+  
   return json({
     city: cityInfo.n,
     country: COUNTRIES[cityInfo.c] || cityInfo.c,
