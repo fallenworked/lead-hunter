@@ -485,3 +485,82 @@ async function handleHistoryUpdate(request, env) {
 
   return json({ ok: true });
 }
+async function handleFavorites(request, env) {
+  if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
+
+  var session = await getSession(request, env);
+  if (!session) return json({ error: 'нужен вход', code: 'AUTH_REQUIRED' }, 401);
+
+  var u = session.user;
+  if (u.plan !== 'pro') return json({ error: 'Избранное доступно только в PRO', code: 'PRO_REQUIRED', items: [] }, 403);
+
+  var rows = await env.DB.prepare(
+    'SELECT id, name, phone, email, addr, type, opening, lat, lon, source_city, source_niche, created_at FROM favorites WHERE user_id = ? ORDER BY created_at DESC LIMIT 200'
+  ).bind(u.user_id).all();
+
+  return json({ ok: true, items: rows.results || [] }, 200, { 'Cache-Control': 'no-store' });
+}
+
+async function handleFavAdd(request, env) {
+  if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
+  if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405);
+
+  var session = await getSession(request, env);
+  if (!session) return json({ error: 'нужен вход', code: 'AUTH_REQUIRED' }, 401);
+
+  var u = session.user;
+  if (u.plan !== 'pro') return json({ error: 'Избранное доступно только в PRO', code: 'PRO_REQUIRED' }, 403);
+
+  var body;
+  try { body = await request.json(); }
+  catch (e) { return json({ error: 'некорректный JSON' }, 400); }
+
+  var name = String(body.name || '').trim();
+  if (!name) return json({ error: 'нужно название' }, 400);
+
+  var phone = String(body.phone || '').trim();
+  var email = String(body.email || '').trim();
+  var addr = String(body.addr || '').trim();
+  var type = String(body.type || '').trim();
+  var opening = String(body.opening || '').trim();
+  var lat = typeof body.lat === 'number' ? body.lat : null;
+  var lon = typeof body.lon === 'number' ? body.lon : null;
+  var sourceCity = String(body.source_city || '').trim();
+  var sourceNiche = String(body.source_niche || '').trim();
+
+  try {
+    var res = await env.DB.prepare(
+      'INSERT OR IGNORE INTO favorites (user_id, name, phone, email, addr, type, opening, lat, lon, source_city, source_niche, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).bind(u.user_id, name, phone, email, addr, type, opening, lat, lon, sourceCity, sourceNiche, Date.now()).run();
+
+    return json({ ok: true, id: res.meta.last_row_id, added: res.meta.changes > 0 });
+  } catch (e) {
+    return json({ error: 'не удалось сохранить' }, 500);
+  }
+}
+
+async function handleFavRemove(request, env) {
+  if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
+  if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405);
+
+  var session = await getSession(request, env);
+  if (!session) return json({ error: 'нужен вход', code: 'AUTH_REQUIRED' }, 401);
+
+  var body;
+  try { body = await request.json(); }
+  catch (e) { return json({ error: 'некорректный JSON' }, 400); }
+
+  var id = parseInt(body.id || 0, 10);
+  var name = String(body.name || '').trim();
+  var addr = String(body.addr || '').trim();
+
+  if (!id && !name) return json({ error: 'нужен id или name' }, 400);
+
+  if (id) {
+    await env.DB.prepare('DELETE FROM favorites WHERE id = ? AND user_id = ?').bind(id, session.user.user_id).run();
+  } else {
+    await env.DB.prepare('DELETE FROM favorites WHERE user_id = ? AND name = ? AND addr = ?').bind(session.user.user_id, name, addr).run();
+  }
+
+  return json({ ok: true });
+}
