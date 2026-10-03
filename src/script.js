@@ -1318,12 +1318,17 @@
     });
   }
 
-  bind();
+    bind();
   bindPlans();
   bindAI();
   bindHistory();
   bindFavorites();
   bindProfile();
+  bindOnboarding();
   renderPresets();
-  preload().then(refreshMe);
+  preload().then(refreshMe).then(function(){
+    setTimeout(function(){
+      if(state.user) openOnboarding();
+    }, 800);
+  });
 })();
