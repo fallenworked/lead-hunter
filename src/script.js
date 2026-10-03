@@ -232,6 +232,7 @@
       if(!pm) return;
       pm.classList.add('show');
       updatePlansToggle();
+      updatePlansButtons();
       setTimeout(updatePlansSlider, 120);
     }, 280);
   }
@@ -262,6 +263,50 @@
     }
   }
 
+  function updatePlansButtons(){
+    var freeCta = $('freeCta');
+    var proCta = $('proCta');
+    if(!freeCta || !proCta) return;
+    var plan = state.user && state.user.plan ? state.user.plan : 'guest';
+    if(plan === 'pro'){
+      freeCta.textContent = 'Понижение недоступно';
+      freeCta.disabled = true;
+      freeCta.style.opacity = '0.5';
+      proCta.textContent = '✓ Текущий тариф';
+      proCta.disabled = true;
+      proCta.style.background = 'transparent';
+      proCta.style.color = 'var(--ok)';
+      proCta.style.border = '1px solid rgba(34,197,139,.3)';
+      proCta.style.boxShadow = 'none';
+      proCta.style.cursor = 'default';
+      proCta.style.transform = 'none';
+    } else if(plan === 'free'){
+      freeCta.textContent = '✓ Текущий тариф';
+      freeCta.disabled = true;
+      freeCta.style.opacity = '1';
+      proCta.textContent = 'Оформить PRO';
+      proCta.disabled = false;
+      proCta.style.background = '';
+      proCta.style.color = '';
+      proCta.style.border = '';
+      proCta.style.boxShadow = '';
+      proCta.style.cursor = '';
+      proCta.style.transform = '';
+    } else {
+      freeCta.textContent = 'Начать бесплатно';
+      freeCta.disabled = false;
+      freeCta.style.opacity = '1';
+      proCta.textContent = 'Оформить PRO';
+      proCta.disabled = false;
+      proCta.style.background = '';
+      proCta.style.color = '';
+      proCta.style.border = '';
+      proCta.style.boxShadow = '';
+      proCta.style.cursor = '';
+      proCta.style.transform = '';
+    }
+  }
+
   function updatePlansSlider(){
     var inner = $('plansToggle'), slider = $('plansSlider');
     if(!inner || !slider) return;
@@ -278,6 +323,7 @@
     var plansClose = $('plansClose');
     var plansToggle = $('plansToggle');
     var proCta = $('proCta');
+    var freeCta = $('freeCta');
     if(plansBg) plansBg.addEventListener('click', closePlans);
     if(plansClose) plansClose.addEventListener('click', closePlans);
     if(plansToggle) plansToggle.addEventListener('click', function(e){
@@ -293,7 +339,13 @@
       updatePlansSlider();
     });
     if(proCta) proCta.addEventListener('click', function(){
+      if(proCta.disabled) return;
       alert('Скоро подключим оплату.\nТариф: ' + (plansPeriod === 'year' ? '1199₽/год' : '199₽/мес') + '\n\nПока напиши в поддержку - активируем вручную.');
+    });
+    if(freeCta) freeCta.addEventListener('click', function(){
+      if(freeCta.disabled) return;
+      closePlans();
+      if(!state.user){ setTimeout(function(){ openAuth('register'); }, 250); }
     });
     window.addEventListener('resize', updatePlansSlider);
   }
@@ -619,6 +671,13 @@
           if(shown[j].phone) withPhone++;
           if(shown[j].addr) withAddr++;
         }
+        if(loc.history_id){
+          fetch('/api/history/update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: loc.history_id, count: totalFound, with_phone: withPhone })
+          }).catch(function(){});
+        }
         animateNumber($('s-total'), totalFound);
         animateNumber($('s-phone'), withPhone);
         animateNumber($('s-addr'), withAddr);
@@ -669,10 +728,22 @@
     if(action === 'plans'){ openPlans(); return; }
     if(action === 'ai'){ openAI(); return; }
     if(action === 'profile'){ closeDrawer(); setTimeout(function(){ alert('Профиль в разработке'); }, 250); return; }
-    if(action === 'history'){ closeDrawer(); setTimeout(function(){ alert('История в разработке'); }, 250); return; }
+    if(action === 'history'){ openHistory(); return; }
     if(action === 'settings'){ closeDrawer(); setTimeout(function(){ alert('Настройки в разработке'); }, 250); return; }
     if(action === 'support'){ closeDrawer(); setTimeout(function(){ alert('Поддержка: напиши в Telegram-канал сервиса'); }, 250); return; }
     if(action === 'about'){ closeDrawer(); setTimeout(function(){ alert('Lead Hunter - поиск бизнесов без сайта.\nДанные OpenStreetMap.\nВерсия 1.0'); }, 250); return; }
+  }
+
+  function openHistory(){
+    closeDrawer();
+    setTimeout(function(){
+      if(!state.user){ openAuth('login'); return; }
+      if(state.user.plan !== 'pro'){
+        alert('История поиска доступна только в PRO.\n\nОформи подписку - 199₽/мес или 1199₽/год.');
+        return;
+      }
+      alert('История поиска - в разработке. Скоро здесь будет список всех поисков.');
+    }, 250);
   }
 
   function bind(){
