@@ -25,6 +25,8 @@ export default {
     if (url.pathname === '/api/favorites') return handleFavorites(request, env);
     if (url.pathname === '/api/favorites/add') return handleFavAdd(request, env);
     if (url.pathname === '/api/favorites/remove') return handleFavRemove(request, env);
+    if (url.pathname === '/api/profile/password') return handleChangePassword(request, env);
+    if (url.pathname === '/api/profile/delete') return handleDeleteAccount(request, env);
     if (url.pathname === '/logo.png') {
       return new Response(logo, { headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' } });
     }
