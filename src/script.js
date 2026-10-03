@@ -237,6 +237,7 @@
         '<div class="drawer-item" data-action="profile">Профиль<span class="right">→</span></div>' +
         '<div class="drawer-item" data-action="plans">Подписка<span class="right">199₽</span></div>' +
         '<div class="drawer-section">Помощь</div>' +
+        '<div class="drawer-item" data-action="tutorial">Показать туториал</div>' +
         '<div class="drawer-item" data-action="settings">Настройки</div>' +
         '<div class="drawer-item" data-action="support">Поддержка</div>' +
         '<div class="drawer-item danger" data-action="logout">Выйти</div>';
@@ -265,9 +266,7 @@
     }).catch(function(){ return null; });
   }
 
-  var authMode = 'login';
   function openAuth(mode){
-    authMode = mode || 'login';
     var m = $('authModal');
     if(!m) return;
     closeDrawer();
@@ -429,7 +428,7 @@
     if(freeCta) freeCta.addEventListener('click', function(){
       if(freeCta.disabled) return;
       closePlans();
-      if(!state.user){ setTimeout(function(){ openAuth('register'); }, 250); }
+      if(!state.user){ setTimeout(function(){ openAuth('login'); }, 250); }
     });
     window.addEventListener('resize', updatePlansSlider);
   }
