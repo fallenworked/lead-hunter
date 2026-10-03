@@ -118,7 +118,7 @@
     }
     g.innerHTML = html;
     var nu = $('noticeUpgrade');
-    if(nu) nu.addEventListener('click', function(){ alert('Подписка: 199₽/мес или 1199₽/год.\nОплата скоро.'); });
+    if(nu) nu.addEventListener('click', openPlans);
   }
 
   function updateNavUI(){
@@ -220,6 +220,81 @@
     if(b) b.classList.remove('open');
   }
 
+  var plansPeriod = 'month';
+
+  function openPlans(){
+    closeDrawer();
+    setTimeout(function(){
+      var pm = $('plansModal');
+      if(!pm) return;
+      pm.classList.add('show');
+      updatePlansToggle();
+      setTimeout(updatePlansSlider, 120);
+    }, 280);
+  }
+
+  function closePlans(){
+    var pm = $('plansModal');
+    if(pm) pm.classList.remove('show');
+  }
+
+  function updatePlansToggle(){
+    var btns = document.querySelectorAll('.plans-toggle-btn');
+    for(var i = 0; i < btns.length; i++){
+      if(btns[i].getAttribute('data-period') === plansPeriod) btns[i].classList.add('active');
+      else btns[i].classList.remove('active');
+    }
+    var amount = $('proAmount'), period = $('proPeriod'), old = $('proOld'), save = $('proSave');
+    if(!amount) return;
+    if(plansPeriod === 'month'){
+      amount.innerHTML = '199<span class="ruble">₽</span>';
+      if(period) period.textContent = 'в месяц';
+      if(old) old.style.display = 'none';
+      if(save){ save.textContent = 'Отмена в любой момент'; save.style.color = 'var(--text-dim)'; }
+    } else {
+      amount.innerHTML = '1199<span class="ruble">₽</span>';
+      if(period) period.textContent = 'в год';
+      if(old) old.style.display = 'inline';
+      if(save){ save.textContent = 'Экономия 1189₽ (65%)'; save.style.color = 'var(--ok)'; }
+    }
+  }
+
+  function updatePlansSlider(){
+    var inner = $('plansToggle'), slider = $('plansSlider');
+    if(!inner || !slider) return;
+    var activeBtn = inner.querySelector('.plans-toggle-btn.active');
+    if(!activeBtn) return;
+    var innerRect = inner.getBoundingClientRect();
+    var btnRect = activeBtn.getBoundingClientRect();
+    slider.style.left = (btnRect.left - innerRect.left) + 'px';
+    slider.style.width = btnRect.width + 'px';
+  }
+
+  function bindPlans(){
+    var plansBg = $('plansBg');
+    var plansClose = $('plansClose');
+    var plansToggle = $('plansToggle');
+    var proCta = $('proCta');
+    if(plansBg) plansBg.addEventListener('click', closePlans);
+    if(plansClose) plansClose.addEventListener('click', closePlans);
+    if(plansToggle) plansToggle.addEventListener('click', function(e){
+      var el = e.target;
+      var btn = null;
+      while(el && el !== plansToggle){
+        if(el.classList && el.classList.contains('plans-toggle-btn')){ btn = el; break; }
+        el = el.parentNode;
+      }
+      if(!btn) return;
+      plansPeriod = btn.getAttribute('data-period');
+      updatePlansToggle();
+      updatePlansSlider();
+    });
+    if(proCta) proCta.addEventListener('click', function(){
+      alert('Скоро подключим оплату.\nТариф: ' + (plansPeriod === 'year' ? '1199₽/год' : '199₽/мес') + '\n\nПока напиши в поддержку - активируем вручную.');
+    });
+    window.addEventListener('resize', updatePlansSlider);
+  }
+
   function submitAuth(){
     var email = $('authEmail').value.trim();
     var password = $('authPassword').value;
@@ -266,7 +341,7 @@
     if(!g) return;
     g.innerHTML = '<div class="empty"><div class="empty-icon">🔒</div><h2>Лимит поисков исчерпан</h2><p>Использовано ' + state.limit + ' поиска на сегодня.</p><p style="margin-top:8px">Подписка открывает безлимитный доступ.</p><button type="button" class="cta" id="openPro">Оформить подписку</button></div>';
     var btn = $('openPro');
-    if(btn) btn.addEventListener('click', function(){ alert('Подписка: 199₽/мес или 1199₽/год.\nОплата скоро.'); });
+    if(btn) btn.addEventListener('click', openPlans);
   }
 
   function doSearch(){
@@ -389,7 +464,7 @@
   function handleAction(action){
     if(action === 'login'){ closeDrawer(); setTimeout(function(){ openAuth('login'); }, 250); return; }
     if(action === 'logout'){ logout(); return; }
-    if(action === 'plans'){ closeDrawer(); setTimeout(function(){ alert('Тарифы:\n• Месяц - 199₽\n• Год - 1199₽ (выгода 65%)\n\nОплата скоро. Напиши в поддержку для активации.'); }, 250); return; }
+    if(action === 'plans'){ openPlans(); return; }
     if(action === 'profile'){ closeDrawer(); setTimeout(function(){ alert('Профиль в разработке'); }, 250); return; }
     if(action === 'history'){ closeDrawer(); setTimeout(function(){ alert('История в разработке'); }, 250); return; }
     if(action === 'settings'){ closeDrawer(); setTimeout(function(){ alert('Настройки в разработке'); }, 250); return; }
@@ -434,9 +509,13 @@
     if(authBg) authBg.addEventListener('click', closeAuth);
     if(authForm) authForm.addEventListener('submit', submitAuth);
     if(authSwitch) authSwitch.addEventListener('click', function(){ openAuth(authMode === 'login' ? 'register' : 'login'); });
+    document.addEventListener('keydown', function(e){
+      if(e.key === 'Escape'){ closeAuth(); closePlans(); closeDrawer(); }
+    });
   }
 
   bind();
+  bindPlans();
   renderPresets();
   preload().then(refreshMe);
 })();
