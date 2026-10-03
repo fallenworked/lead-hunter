@@ -18,6 +18,8 @@ export default {
     if (url.pathname === '/api/auth/logout') return handleLogout(request, env);
     if (url.pathname === '/api/auth/me') return handleMe(request, env);
     if (url.pathname === '/api/locate') return handleLocate(request, env);
+    if (url.pathname === '/api/ai/chat') return handleChat(request, env);  
+    if (url.pathname === '/api/ai/limit') return handleAILimit(request, env);
     if (url.pathname === '/logo.png') {
       return new Response(logo, { headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' } });
     }
