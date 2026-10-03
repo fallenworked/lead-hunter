@@ -4,12 +4,17 @@ import styleCss from './style.css';
 import scriptJs from './script.js';
 import { handleChat, handleAILimit } from './ai.js';
 import { termsPage, privacyPage, refundPage, offerPage } from './legal.js';
+import { handleTelegramAuth } from './telegram.js';
+import { handleGoogleStart, handleGoogleCallback } from './google.js';
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname === '/style.css') return new Response(styleCss, { headers: { 'Content-Type': 'text/css; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
     if (url.pathname === '/script.js') return new Response(scriptJs, { headers: { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
+    if (url.pathname === '/api/auth/telegram') return handleTelegramAuth(request, env);
+    if (url.pathname === '/api/auth/google/start') return handleGoogleStart(request, env);
+    if (url.pathname === '/api/auth/google/callback') return handleGoogleCallback(request, env);
     if (url.pathname === '/api/auth/register') return handleRegister(request, env);
     if (url.pathname === '/api/auth/login') return handleLogin(request, env);
     if (url.pathname === '/api/auth/logout') return handleLogout(request, env);
