@@ -996,7 +996,157 @@
     if(close) close.addEventListener('click', closeFavorites);
     if(exportBtn) exportBtn.addEventListener('click', exportFavoritesCSV);
   }
+  var ONB_KEY = 'lh_onb_done_v1';
 
+  var ONB_STEPS = [
+    {
+      target: '.panel',
+      title: 'Выбери город и нишу',
+      text: 'Введи город и нишу (например <b>Казань</b> + <b>кафе</b>). Можно выбрать готовый пресет из подсказок ниже.'
+    },
+    {
+      target: '#go',
+      title: 'Нажми «Найти клиентов»',
+      text: 'Через 3-10 секунд получишь список бизнесов, у которых <b>нет сайта</b>, с телефонами и адресами.'
+    },
+    {
+      target: '#grid',
+      title: 'Работай с базой',
+      text: 'На каждой карточке есть кнопки <b>Позвонить</b>, <b>WhatsApp</b>, <b>Я.Карты</b>. В PRO можно ставить ☆ и сохранять в избранное.'
+    },
+    {
+      target: '.burger',
+      title: 'Всё в меню',
+      text: 'Открой бургер-меню справа: <b>AI Агент</b> (помощник продаж), <b>История</b>, <b>Избранное</b>, <b>Профиль</b>. Всё это доступно в PRO-подписке.',
+      force: 'burger'
+    }
+  ];
+
+  var onbStep = 0;
+  var onbVisible = false;
+
+  function shouldShowOnboarding(){
+    try {
+      if(localStorage.getItem(ONB_KEY)) return false;
+    } catch(e){}
+    return true;
+  }
+
+  function markOnboardingDone(){
+    try { localStorage.setItem(ONB_KEY, '1'); } catch(e){}
+  }
+
+  function openOnboarding(){
+    if(!shouldShowOnboarding()) return;
+    onbStep = 0;
+    onbVisible = true;
+    var m = $('onbModal');
+    if(!m) return;
+    m.classList.add('show');
+    setTimeout(function(){ renderOnbStep(); }, 400);
+  }
+
+  function closeOnboarding(){
+    onbVisible = false;
+    markOnboardingDone();
+    var m = $('onbModal');
+    if(m) m.classList.remove('show');
+  }
+
+  function renderOnbStep(){
+    if(!onbVisible) return;
+    var step = ONB_STEPS[onbStep];
+    if(!step){ closeOnboarding(); return; }
+
+    var stepEl = $('onbStep');
+    var titleEl = $('onbTitle');
+    var textEl = $('onbText');
+    var nextBtn = $('onbNext');
+    var tip = $('onbTip');
+    var spot = $('onbSpot');
+    if(!stepEl || !tip || !spot) return;
+
+    stepEl.textContent = 'Шаг ' + (onbStep + 1) + ' из ' + ONB_STEPS.length;
+    titleEl.textContent = step.title;
+    textEl.innerHTML = step.text;
+    nextBtn.textContent = onbStep === ONB_STEPS.length - 1 ? 'Готово ✓' : 'Далее →';
+
+    // Особый случай: подсветить бургер и открыть drawer визуально
+    var target;
+    if(step.force === 'burger'){
+      target = document.querySelector('.burger');
+    } else {
+      target = document.querySelector(step.target);
+    }
+    if(!target){
+      // Пропустить шаг если элемента нет
+      onbStep++;
+      renderOnbStep();
+      return;
+    }
+
+    var rect = target.getBoundingClientRect();
+    var pad = 10;
+    spot.style.left = (rect.left - pad) + 'px';
+    spot.style.top = (rect.top - pad) + 'px';
+    spot.style.width = (rect.width + pad * 2) + 'px';
+    spot.style.height = (rect.height + pad * 2) + 'px';
+
+    // Позиционируем тултип
+    var tipW = 380;
+    var tipH = tip.offsetHeight || 200;
+    var winW = window.innerWidth;
+    var winH = window.innerHeight;
+    var tipLeft, tipTop;
+
+    // Пробуем разместить снизу
+    if(rect.bottom + tipH + 20 < winH){
+      tipTop = rect.bottom + pad + 12;
+      tipLeft = rect.left + rect.width / 2 - tipW / 2;
+    } else if(rect.top - tipH - 20 > 0){
+      // Сверху
+      tipTop = rect.top - pad - tipH - 12;
+      tipLeft = rect.left + rect.width / 2 - tipW / 2;
+    } else {
+      // По центру внизу экрана
+      tipTop = winH - tipH - 24;
+      tipLeft = winW / 2 - tipW / 2;
+    }
+
+    // Ограничиваем по краям
+    if(tipLeft < 16) tipLeft = 16;
+    if(tipLeft + tipW > winW - 16) tipLeft = winW - tipW - 16;
+    if(tipTop < 16) tipTop = 16;
+    if(tipTop + tipH > winH - 16) tipTop = winH - tipH - 16;
+
+    tip.style.left = tipLeft + 'px';
+    tip.style.top = tipTop + 'px';
+    tip.style.maxWidth = Math.min(380, winW - 32) + 'px';
+  }
+
+  function nextOnbStep(){
+    onbStep++;
+    if(onbStep >= ONB_STEPS.length){ closeOnboarding(); return; }
+    renderOnbStep();
+  }
+
+  function bindOnboarding(){
+    var nextBtn = $('onbNext');
+    var skipBtn = $('onbSkip');
+    var bg = $('onbBg');
+    if(nextBtn) nextBtn.addEventListener('click', nextOnbStep);
+    if(skipBtn) skipBtn.addEventListener('click', closeOnboarding);
+    if(bg) bg.addEventListener('click', closeOnboarding);
+    document.addEventListener('keydown', function(e){
+      if(e.key === 'Escape' && onbVisible) closeOnboarding();
+      if(e.key === 'ArrowRight' && onbVisible) nextOnbStep();
+    });
+    window.addEventListener('resize', function(){
+      if(onbVisible) renderOnbStep();
+    });
+  }
+
+  
   function openProfile(){
     closeDrawer();
     setTimeout(function(){
