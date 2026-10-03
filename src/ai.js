@@ -1,4 +1,3 @@
-const FREE_AI_LIMIT = 5;
 const PRO_AI_LIMIT = 100;
 
 const SYSTEM_PROMPT = 'Ты — AI-ассистент сервиса Lead Hunter. Сервис помогает находить бизнесы без сайта по городу и нише, чтобы продавать им услуги (создание сайтов, реклама, SEO). Твоя задача — помогать пользователю: 1) составлять скрипты холодных звонков и сообщений; 2) придумывать аргументы, почему бизнесу нужен сайт; 3) писать коммерческие предложения; 4) отвечать на возражения. Отвечай кратко, по делу, на русском. Без воды и длинных вступлений. Давай конкретные фразы, которые можно использовать сразу. Используй короткие абзацы, списки, выделяй ключевые фразы жирным.';
@@ -142,16 +141,16 @@ async function callAI(messages, env) {
 export async function handleAILimit(request, env) {
   if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
   var session = await getSession(request, env);
-  if (!session) return json({ user: null, limit: FREE_AI_LIMIT, used: 0 });
+  if (!session) return json({ user: null, limit: PRO_AI_LIMIT, used: 0, pro: false });
   var u = session.user;
   var todayStr = today();
   var used = u.ai_last_date === todayStr ? (u.ai_messages_today || 0) : 0;
-  var limit = u.plan === 'pro' ? PRO_AI_LIMIT : FREE_AI_LIMIT;
   return json({
     user: { plan: u.plan },
+    pro: u.plan === 'pro',
     used: used,
-    limit: limit,
-    remaining: Math.max(0, limit - used)
+    limit: PRO_AI_LIMIT,
+    remaining: Math.max(0, PRO_AI_LIMIT - used)
   });
 }
 
@@ -162,6 +161,15 @@ export async function handleChat(request, env) {
   var session = await getSession(request, env);
   if (!session) return json({ error: 'нужен вход', code: 'AUTH_REQUIRED' }, 401);
 
+  var u = session.user;
+
+  if (u.plan !== 'pro') {
+    return json({
+      error: 'AI Агент доступен только в PRO',
+      code: 'PRO_REQUIRED'
+    }, 403);
+  }
+
   var body;
   try { body = await request.json(); }
   catch (e) { return json({ error: 'некорректный JSON' }, 400); }
@@ -170,18 +178,15 @@ export async function handleChat(request, env) {
   if (!messages.length) return json({ error: 'нет сообщений' }, 400);
   if (messages.length > 20) messages = messages.slice(-20);
 
-  var u = session.user;
   var todayStr = today();
   var used = u.ai_last_date === todayStr ? (u.ai_messages_today || 0) : 0;
-  var limit = u.plan === 'pro' ? PRO_AI_LIMIT : FREE_AI_LIMIT;
 
-  if (used >= limit) {
+  if (used >= PRO_AI_LIMIT) {
     return json({
-      error: 'Лимит AI-сообщений на сегодня исчерпан',
+      error: 'Дневной лимит AI-сообщений исчерпан',
       code: 'AI_LIMIT_REACHED',
       used: used,
-      limit: limit,
-      plan: u.plan
+      limit: PRO_AI_LIMIT
     }, 429);
   }
 
@@ -197,8 +202,8 @@ export async function handleChat(request, env) {
       reply: result.text,
       provider: result.provider,
       used: newUsed,
-      limit: limit,
-      remaining: Math.max(0, limit - newUsed)
+      limit: PRO_AI_LIMIT,
+      remaining: Math.max(0, PRO_AI_LIMIT - newUsed)
     });
   } catch (e) {
     return json({ error: e.message }, 500);
