@@ -12,7 +12,7 @@
 <body>
 
 <div class="preloader" id="preloader">
-  <div class="nav-brand"><img src="/logo.png" alt="LH"><span>LEAD HUNTER</span><span class="nav-live">LIVE</span></div>
+  <div class="preloader-brand">LEAD HUNTER</div>
   <div class="preloader-bar" id="preloaderBar"></div>
   <div class="preloader-pct" id="preloaderPct">0%</div>
 </div>
@@ -23,25 +23,15 @@
     <button class="modal-close" id="authModalClose">×</button>
     <h2 id="authTitle">Вход</h2>
     <p class="sub" id="authSub">Войди чтобы искать клиентов</p>
-    <div class="auth-sep"><span>Войти через</span></div>
-<div class="oauth-row">
-  <button type="button" class="oauth-btn google" id="oauthGoogle">
-    <svg class="oauth-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-    </svg>
-    <span>Google</span>
-  </button>
-  <button type="button" class="oauth-btn telegram" id="oauthTelegram">
-    <svg class="oauth-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
-      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/>
-    </svg>
-    <span>Telegram</span>
-  </button>
+    <form id="authForm" onsubmit="return false">
+      <div class="field"><label>Email</label><input id="authEmail" type="email" placeholder="you@example.com"></div>
+      <div class="field"><label>Пароль</label><input id="authPassword" type="password" placeholder="минимум 6 символов"></div>
+      <button class="btn btn-primary" id="authSubmit" type="submit">Войти</button>
+      <div class="modal-msg" id="authMsg"></div>
+      <div class="modal-switch"><span id="authSwitchText">Нет аккаунта?</span> <a id="authSwitchLink">Регистрация</a></div>
+    </form>
+  </div>
 </div>
-<p class="auth-terms">Продолжая, ты соглашаешься с <a href="/terms" target="_blank">условиями</a> и <a href="/privacy" target="_blank">политикой конфиденциальности</a>.</p>
 
 <div class="plans" id="plansModal">
   <div class="plans-bg" id="plansBg"></div>
@@ -74,7 +64,7 @@
             <li class="off"><span class="cross">×</span><span>История поисков</span></li>
             <li class="off"><span class="cross">×</span><span>AI Агент</span></li>
           </ul>
-               <button type="button" class="plan-cta free" id="freeCta" disabled>Текущий тариф</button>
+          <button type="button" class="plan-cta free" id="freeCta" disabled>Текущий тариф</button>
         </div>
       </div>
       <div class="plan-card pro">
@@ -103,85 +93,7 @@
     <div class="plans-foot">Платежи <b>скоро</b>. Пока хочешь PRO - напиши в поддержку.</div>
   </div>
 </div>
-  <div class="onb" id="onbModal">
-  <div class="onb-bg" id="onbBg"></div>
-  <div class="onb-spot" id="onbSpot"></div>
-  <div class="onb-tip" id="onbTip">
-    <div class="onb-step" id="onbStep">Шаг 1 из 4</div>
-    <div class="onb-title" id="onbTitle">Добро пожаловать!</div>
-    <div class="onb-text" id="onbText">Lead Hunter находит бизнесы без сайта - готовые клиенты для веб-студий и фрилансеров.</div>
-    <div class="onb-actions">
-      <button type="button" class="onb-skip" id="onbSkip">Пропустить</button>
-      <button type="button" class="onb-next" id="onbNext">Далее →</button>
-    </div>
-  </div>
-</div>
- <div class="prof" id="profModal">
-  <div class="prof-bg" id="profBg"></div>
-  <div class="prof-body">
-    <button type="button" class="prof-close" id="profClose">×</button>
-    <div class="prof-head">
-      <div class="prof-avatar" id="profAvatar">?</div>
-      <div class="prof-email" id="profEmail">-</div>
-      <div class="prof-badge" id="profBadge">FREE</div>
-    </div>
 
-    <div class="prof-section">
-      <div class="prof-section-title">Смена пароля</div>
-      <div class="field"><label>Текущий пароль</label><input id="profCurrent" type="password" placeholder="••••••"></div>
-      <div class="field"><label>Новый пароль</label><input id="profNew" type="password" placeholder="минимум 6 символов"></div>
-      <div class="field"><label>Повтори новый</label><input id="profRepeat" type="password" placeholder="••••••"></div>
-      <button type="button" class="btn btn-primary prof-save" id="profSave">Сохранить пароль</button>
-      <div class="prof-msg" id="profMsg"></div>
-    </div>
-
-    <div class="prof-section prof-danger">
-      <div class="prof-section-title">Опасная зона</div>
-      <p class="prof-danger-text">Удаление аккаунта необратимо. Все поиски, избранное и подписка будут стёрты.</p>
-      <button type="button" class="prof-delete-btn" id="profDeleteToggle">Удалить аккаунт</button>
-      <div class="prof-delete-form" id="profDeleteForm" style="display:none">
-        <div class="field"><label>Введи слово <b>УДАЛИТЬ</b> заглавными</label><input id="profDeleteConfirm" placeholder="УДАЛИТЬ"></div>
-        <div class="field"><label>Пароль</label><input id="profDeletePassword" type="password" placeholder="••••••"></div>
-        <button type="button" class="prof-delete-final" id="profDeleteFinal">Удалить навсегда</button>
-        <button type="button" class="prof-delete-cancel" id="profDeleteCancel">Отмена</button>
-      </div>
-    </div>
-  </div>
-</div> 
-  <div class="fav" id="favModal">
-  <div class="fav-bg" id="favBg"></div>
-  <div class="fav-body">
-    <div class="fav-head">
-      <div class="fav-head-info">
-        <div class="fav-icon">⭐</div>
-        <div>
-          <div class="fav-title">Избранное</div>
-          <div class="fav-sub" id="favCount">Загрузка…</div>
-        </div>
-      </div>
-      <button type="button" class="fav-export" id="favExport" title="Экспорт в CSV">CSV</button>
-      <button type="button" class="fav-close" id="favClose">×</button>
-    </div>
-    <div class="fav-list" id="favList"></div>
-  </div>
-</div>
-<div class="hist" id="histModal">
-  <div class="hist-bg" id="histBg"></div>
-  <div class="hist-body">
-    <div class="hist-head">
-      <div class="hist-head-info">
-        <div class="hist-icon">📋</div>
-        <div>
-          <div class="hist-title">История поиска</div>
-          <div class="hist-sub" id="histCount">Загрузка…</div>
-        </div>
-      </div>
-      <button type="button" class="hist-close" id="histClose">×</button>
-    </div>
-    <div class="hist-list" id="histList"></div>
-  </div>
-</div>
-  
 <div class="ai" id="aiModal">
   <div class="ai-bg" id="aiBg"></div>
   <div class="ai-body">
@@ -219,6 +131,86 @@
   </div>
 </div>
 
+<div class="hist" id="histModal">
+  <div class="hist-bg" id="histBg"></div>
+  <div class="hist-body">
+    <div class="hist-head">
+      <div class="hist-head-info">
+        <div class="hist-icon">📋</div>
+        <div>
+          <div class="hist-title">История поиска</div>
+          <div class="hist-sub" id="histCount">Загрузка…</div>
+        </div>
+      </div>
+      <button type="button" class="hist-close" id="histClose">×</button>
+    </div>
+    <div class="hist-list" id="histList"></div>
+  </div>
+</div>
+
+<div class="fav" id="favModal">
+  <div class="fav-bg" id="favBg"></div>
+  <div class="fav-body">
+    <div class="fav-head">
+      <div class="fav-head-info">
+        <div class="fav-icon">⭐</div>
+        <div>
+          <div class="fav-title">Избранное</div>
+          <div class="fav-sub" id="favCount">Загрузка…</div>
+        </div>
+      </div>
+      <button type="button" class="fav-export" id="favExport" title="Экспорт в CSV">CSV</button>
+      <button type="button" class="fav-close" id="favClose">×</button>
+    </div>
+    <div class="fav-list" id="favList"></div>
+  </div>
+</div>
+
+<div class="prof" id="profModal">
+  <div class="prof-bg" id="profBg"></div>
+  <div class="prof-body">
+    <button type="button" class="prof-close" id="profClose">×</button>
+    <div class="prof-head">
+      <div class="prof-avatar" id="profAvatar">?</div>
+      <div class="prof-email" id="profEmail">-</div>
+      <div class="prof-badge" id="profBadge">FREE</div>
+    </div>
+    <div class="prof-section">
+      <div class="prof-section-title">Смена пароля</div>
+      <div class="field"><label>Текущий пароль</label><input id="profCurrent" type="password" placeholder="••••••"></div>
+      <div class="field"><label>Новый пароль</label><input id="profNew" type="password" placeholder="минимум 6 символов"></div>
+      <div class="field"><label>Повтори новый</label><input id="profRepeat" type="password" placeholder="••••••"></div>
+      <button type="button" class="btn btn-primary prof-save" id="profSave">Сохранить пароль</button>
+      <div class="prof-msg" id="profMsg"></div>
+    </div>
+    <div class="prof-section prof-danger">
+      <div class="prof-section-title">Опасная зона</div>
+      <p class="prof-danger-text">Удаление аккаунта необратимо. Все поиски, избранное и подписка будут стёрты.</p>
+      <button type="button" class="prof-delete-btn" id="profDeleteToggle">Удалить аккаунт</button>
+      <div class="prof-delete-form" id="profDeleteForm" style="display:none">
+        <div class="field"><label>Введи слово <b>УДАЛИТЬ</b> заглавными</label><input id="profDeleteConfirm" placeholder="УДАЛИТЬ"></div>
+        <div class="field"><label>Пароль</label><input id="profDeletePassword" type="password" placeholder="••••••"></div>
+        <button type="button" class="prof-delete-final" id="profDeleteFinal">Удалить навсегда</button>
+        <button type="button" class="prof-delete-cancel" id="profDeleteCancel">Отмена</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="onb" id="onbModal">
+  <div class="onb-bg" id="onbBg"></div>
+  <div class="onb-spot" id="onbSpot"></div>
+  <div class="onb-tip" id="onbTip">
+    <div class="onb-step" id="onbStep">Шаг 1 из 4</div>
+    <div class="onb-title" id="onbTitle">Добро пожаловать!</div>
+    <div class="onb-text" id="onbText">Lead Hunter находит бизнесы без сайта - готовые клиенты для веб-студий и фрилансеров.</div>
+    <div class="onb-actions">
+      <button type="button" class="onb-skip" id="onbSkip">Пропустить</button>
+      <button type="button" class="onb-next" id="onbNext">Далее →</button>
+    </div>
+  </div>
+</div>
+
 <div class="drawer" id="drawer">
   <div class="drawer-bg" id="drawerBg"></div>
   <div class="drawer-body">
@@ -239,11 +231,13 @@
 
 <div class="app" id="app">
   <nav class="nav">
-    <div class="nav-brand"><img src="/logo.png" alt="LH"><span>LEAD HUNTER</span></div>
+    <div class="nav-brand"><img src="/logo.png" alt="LH"><span>LEAD HUNTER</span><span class="nav-live">LIVE</span></div>
     <div class="nav-right">
       <span class="nav-plan free" id="navPlan" style="display:none">FREE</span>
       <button class="btn-login" id="navLogin">Войти</button>
-      <button class="burger" id="burger"><span></span><span></span><span></span></button>
+      <button class="burger" id="burger" aria-label="Меню">
+        <span></span><span></span><span></span>
+      </button>
     </div>
   </nav>
 
