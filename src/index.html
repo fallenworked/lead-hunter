@@ -63,6 +63,7 @@
             <li class="on"><span class="check">✓</span><span>25 ниш</span></li>
             <li class="off"><span class="cross">×</span><span>CSV-экспорт</span></li>
             <li class="off"><span class="cross">×</span><span>История поисков</span></li>
+            <li class="off"><span class="cross">×</span><span>AI Агент</span></li>
           </ul>
           <button type="button" class="plan-cta free" disabled>Текущий тариф</button>
         </div>
@@ -81,6 +82,7 @@
             <li class="on"><span class="check">✓</span><span><b>Безлимит</b> поисков</span></li>
             <li class="on"><span class="check">✓</span><span><b>Все результаты</b></span></li>
             <li class="on"><span class="check">✓</span><span><b>CSV-экспорт</b></span></li>
+            <li class="on"><span class="check">✓</span><span><b>AI Агент</b> - помощник продаж</span></li>
             <li class="on"><span class="check">✓</span><span><b>История</b> поисков</span></li>
             <li class="on"><span class="check">✓</span><span>Избранное и теги</span></li>
             <li class="on"><span class="check">✓</span><span>Приоритетная поддержка</span></li>
@@ -90,6 +92,42 @@
       </div>
     </div>
     <div class="plans-foot">Платежи <b>скоро</b>. Пока хочешь PRO - напиши в поддержку.</div>
+  </div>
+</div>
+
+<div class="ai" id="aiModal">
+  <div class="ai-bg" id="aiBg"></div>
+  <div class="ai-body">
+    <div class="ai-head">
+      <div class="ai-head-info">
+        <div class="ai-avatar">AI</div>
+        <div>
+          <div class="ai-title">AI Агент</div>
+          <div class="ai-sub" id="aiCounter">Загрузка…</div>
+        </div>
+      </div>
+      <button class="ai-close" id="aiClose">×</button>
+    </div>
+    <div class="ai-chat" id="aiChat">
+      <div class="ai-welcome">
+        <div class="ai-welcome-icon">✨</div>
+        <h3>Привет! Я помогу продать услугу</h3>
+        <p>Спроси что угодно или выбери готовый шаблон ниже</p>
+        <div class="ai-quick" id="aiQuick">
+          <button type="button" class="ai-quick-btn" data-prompt="Напиши скрипт холодного звонка для стоматологии в Москве, у которой нет сайта. Мой бюджет за услугу 50000 рублей.">📞 Скрипт звонка</button>
+          <button type="button" class="ai-quick-btn" data-prompt="Напиши 5 причин, почему стоматологии нужен сайт, чтобы убедить владельца.">💡 5 причин</button>
+          <button type="button" class="ai-quick-btn" data-prompt="Напиши коммерческое предложение на создание сайта для стоматологии. Цена 50000 рублей, срок 2 недели.">📄 КП</button>
+          <button type="button" class="ai-quick-btn" data-prompt="Клиент говорит: у нас уже есть группа ВКонтакте, сайт не нужен. Что ответить?">🛡 Ответ на возражение</button>
+          <button type="button" class="ai-quick-btn" data-prompt="Напиши короткое сообщение в WhatsApp для владельца стоматологии без сайта.">💬 Сообщение в WA</button>
+        </div>
+      </div>
+    </div>
+    <div class="ai-input-row">
+      <textarea id="aiInput" placeholder="Спроси что-нибудь…" rows="1"></textarea>
+      <button type="button" class="ai-send" id="aiSend" title="Отправить">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+      </button>
+    </div>
   </div>
 </div>
 
@@ -138,8 +176,9 @@
 
   <div class="stats">
     <div class="stat"><div class="stat-label">Найдено</div><div class="stat-value" id="s-total">0</div></div>
-    <div class="stat ok"><div class="stat-label">С телефоном</div><div class="stat-value" id="s-phone">0</div></div>
-    <div class="stat warm"><div class="stat-label">С адресом</div><div class="stat-value" id="s-addr">0</div></div>
+    <div class="stat ok"><div class="stat('-label">С телефономhide</div><div class="stat-value');
+" id="s-phone   ">0</div></div>
+    < ifdiv class="stat warm"><div(app class="stat-label">С адресом</div><div class="stat-value" id="s-addr">0</div></div>
     <div class="stat accent"><div class="stat-label">Локация</div><div class="stat-value sm" id="s-city">-</div></div>
   </div>
 
