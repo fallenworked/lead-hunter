@@ -853,9 +853,10 @@
     });
   }
 
-  bind();
+   bind();
   bindPlans();
   bindAI();
+  bindHistory();;
   renderPresets();
   preload().then(refreshMe);
 })();
