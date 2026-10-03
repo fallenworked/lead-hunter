@@ -281,26 +281,37 @@
     if(!popup || popup.closed) alert('Разреши всплывающие окна для входа через Telegram');
   }
 
-  window.addEventListener('message', function(event){
-    if(event.origin !== 'https://oauth.telegram.org') return;
-    var data = event.data;
-    if(!data) return;
-    if(typeof data === 'string'){
-      try { data = JSON.parse(data); } catch(e){ return; }
-    }
-    if(!data.id || !data.hash) return;
+  function decodeTelegramHash(hash){
+    try {
+      var raw = hash.replace('#tgAuthResult=', '');
+      var padding = raw.length % 4;
+      if(padding) raw += new Array(5 - padding).join('=');
+      var binary = atob(raw);
+      var bytes = new Uint8Array(binary.length);
+      for(var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      var json = new TextDecoder('utf-8').decode(bytes);
+      return JSON.parse(json);
+    } catch(e){ return null; }
+  }
+
+  function checkTelegramAuth(){
+    if(!window.location.hash || window.location.hash.indexOf('tgAuthResult=') === -1) return;
+    var data = decodeTelegramHash(window.location.hash);
+    if(!data || !data.id || !data.hash) return;
+    var cleanUrl = window.location.origin + window.location.pathname;
+    try { window.history.replaceState(null, '', cleanUrl); } catch(e){}
     fetch('/api/auth/telegram', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     }).then(function(r){ return r.json(); }).then(function(res){
-      if(res.error){ alert('Ошибка входа: ' + res.error); return; }
+      if(res.error){ alert('Ошибка входа через Telegram: ' + res.error); return; }
       closeAuth();
       refreshMe().then(function(){ if(state.user) doSearch(); });
     }).catch(function(e){
       alert('Ошибка сети: ' + e.message);
     });
-  });
+  }
 
   function openDrawer(){
     var d = $('drawer'), b = $('burger');
@@ -1030,6 +1041,8 @@
   bindProfile();
   bindOnboarding();
   renderPresets();
+
+  checkTelegramAuth();
 
   preload().then(function(){
     refreshMe();
