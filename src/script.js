@@ -1237,7 +1237,12 @@
   bindProfile();
   bindOnboarding();
   renderPresets();
-  preload().then(refreshMe).then(function(){
-    setTimeout(function(){ openOnboarding(); }, 800);
+   preload().then(function(){
+    refreshMe();
+  }).catch(function(e){
+    console.error('boot err', e);
+    var pl = $('preloader'), app = $('app');
+    if(pl) pl.classList.add('hide');
+    if(app) app.classList.add('show');
   });
 })();
