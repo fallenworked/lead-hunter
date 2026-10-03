@@ -18,7 +18,7 @@ export default {
     if (url.pathname === '/api/auth/logout') return handleLogout(request, env);
     if (url.pathname === '/api/auth/me') return handleMe(request, env);
     if (url.pathname === '/api/locate') return handleLocate(request, env);
-    if (url.pathname === '/api/ai/chat') return handleChat(request, env);  
+    if (url.pathname === '/api/ai/chat') return handleChat(request, env);
     if (url.pathname === '/api/ai/limit') return handleAILimit(request, env);
     if (url.pathname === '/api/history') return handleHistory(request, env);
     if (url.pathname === '/api/history/update') return handleHistoryUpdate(request, env);
@@ -405,13 +405,15 @@ async function handleLocate(request, env) {
   await env.DB.prepare(
     'UPDATE users SET searches_today = ?, last_search_date = ? WHERE id = ?'
   ).bind(newCount, todayStr, u.user_id).run();
-  
+
+  var historyId = null;
   try {
-    await env.DB.prepare(
+    var histRes = await env.DB.prepare(
       'INSERT INTO search_history (user_id, city, niche, created_at) VALUES (?, ?, ?, ?)'
     ).bind(u.user_id, cityInfo.n, niche, Date.now()).run();
+    historyId = histRes.meta.last_row_id;
   } catch (e) { console.error('history insert failed', e.message); }
-  
+
   return json({
     city: cityInfo.n,
     country: COUNTRIES[cityInfo.c] || cityInfo.c,
@@ -423,6 +425,60 @@ async function handleLocate(request, env) {
     limit: FREE_LIMIT,
     result_limit: resultLimitFor(u.plan),
     plan: u.plan,
+    history_id: historyId,
     updated: new Date().toISOString()
   });
+}
+
+async function handleHistory(request, env) {
+  if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
+
+  var session = await getSession(request, env);
+  if (!session) return json({ error: 'нужен вход', code: 'AUTH_REQUIRED' }, 401);
+
+  var u = session.user;
+
+  if (u.plan !== 'pro') {
+    return json({
+      error: 'История доступна только в PRO',
+      code: 'PRO_REQUIRED',
+      items: []
+    }, 403);
+  }
+
+  var url = new URL(request.url);
+  var limit = Math.min(parseInt(url.searchParams.get('limit') || '30', 10), 100);
+
+  var rows = await env.DB.prepare(
+    'SELECT id, city, niche, count, with_phone, created_at FROM search_history WHERE user_id = ? ORDER BY created_at DESC LIMIT ?'
+  ).bind(u.user_id, limit).all();
+
+  return json({
+    ok: true,
+    items: rows.results || []
+  }, 200, { 'Cache-Control': 'no-store' });
+}
+
+async function handleHistoryUpdate(request, env) {
+  if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
+  if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405);
+
+  var session = await getSession(request, env);
+  if (!session) return json({ error: 'нужен вход' }, 401);
+
+  var body;
+  try { body = await request.json(); }
+  catch (e) { return json({ error: 'некорректный JSON' }, 400); }
+
+  var id = parseInt(body.id || 0, 10);
+  var count = parseInt(body.count || 0, 10);
+  var withPhone = parseInt(body.with_phone || 0, 10);
+
+  if (!id) return json({ error: 'нужен id' }, 400);
+
+  await env.DB.prepare(
+    'UPDATE search_history SET count = ?, with_phone = ? WHERE id = ? AND user_id = ?'
+  ).bind(count, withPhone, id, session.user.user_id).run();
+
+  return json({ ok: true });
 }
