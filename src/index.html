@@ -94,6 +94,38 @@
     <div class="plans-foot">Платежи <b>скоро</b>. Пока хочешь PRO - напиши в поддержку.</div>
   </div>
 </div>
+ <div class="prof" id="profModal">
+  <div class="prof-bg" id="profBg"></div>
+  <div class="prof-body">
+    <button type="button" class="prof-close" id="profClose">×</button>
+    <div class="prof-head">
+      <div class="prof-avatar" id="profAvatar">?</div>
+      <div class="prof-email" id="profEmail">-</div>
+      <div class="prof-badge" id="profBadge">FREE</div>
+    </div>
+
+    <div class="prof-section">
+      <div class="prof-section-title">Смена пароля</div>
+      <div class="field"><label>Текущий пароль</label><input id="profCurrent" type="password" placeholder="••••••"></div>
+      <div class="field"><label>Новый пароль</label><input id="profNew" type="password" placeholder="минимум 6 символов"></div>
+      <div class="field"><label>Повтори новый</label><input id="profRepeat" type="password" placeholder="••••••"></div>
+      <button type="button" class="btn btn-primary prof-save" id="profSave">Сохранить пароль</button>
+      <div class="prof-msg" id="profMsg"></div>
+    </div>
+
+    <div class="prof-section prof-danger">
+      <div class="prof-section-title">Опасная зона</div>
+      <p class="prof-danger-text">Удаление аккаунта необратимо. Все поиски, избранное и подписка будут стёрты.</p>
+      <button type="button" class="prof-delete-btn" id="profDeleteToggle">Удалить аккаунт</button>
+      <div class="prof-delete-form" id="profDeleteForm" style="display:none">
+        <div class="field"><label>Введи слово <b>УДАЛИТЬ</b> заглавными</label><input id="profDeleteConfirm" placeholder="УДАЛИТЬ"></div>
+        <div class="field"><label>Пароль</label><input id="profDeletePassword" type="password" placeholder="••••••"></div>
+        <button type="button" class="prof-delete-final" id="profDeleteFinal">Удалить навсегда</button>
+        <button type="button" class="prof-delete-cancel" id="profDeleteCancel">Отмена</button>
+      </div>
+    </div>
+  </div>
+</div> 
   <div class="fav" id="favModal">
   <div class="fav-bg" id="favBg"></div>
   <div class="fav-body">
