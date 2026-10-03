@@ -566,3 +566,81 @@ async function handleFavRemove(request, env) {
 
   return json({ ok: true });
 }
+async function handleChangePassword(request, env) {
+  if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
+  if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405);
+
+  var session = await getSession(request, env);
+  if (!session) return json({ error: 'нужен вход', code: 'AUTH_REQUIRED' }, 401);
+
+  var body;
+  try { body = await request.json(); }
+  catch (e) { return json({ error: 'некорректный JSON' }, 400); }
+
+  var currentPassword = String(body.current_password || '');
+  var newPassword = String(body.new_password || '');
+
+  if (!currentPassword || !newPassword) return json({ error: 'заполни все поля' }, 400);
+  if (newPassword.length < 6) return json({ error: 'новый пароль минимум 6 символов' }, 400);
+
+  var user = await env.DB.prepare(
+    'SELECT id, password_hash, salt FROM users WHERE id = ?'
+  ).bind(session.user.user_id).first();
+  if (!user) return json({ error: 'пользователь не найден' }, 404);
+
+  var currentHash = await hashPassword(currentPassword, user.salt);
+  if (currentHash !== user.password_hash) return json({ error: 'неверный текущий пароль' }, 401);
+
+  var newSalt = randomHex(16);
+  var newHash = await hashPassword(newPassword, newSalt);
+
+  await env.DB.prepare(
+    'UPDATE users SET password_hash = ?, salt = ? WHERE id = ?'
+  ).bind(newHash, newSalt, user.id).run();
+
+  // Удаляем все сессии кроме текущей - на всякий случай
+  await env.DB.prepare(
+    'DELETE FROM sessions WHERE user_id = ? AND token != ?'
+  ).bind(user.id, session.token).run();
+
+  return json({ ok: true, message: 'Пароль обновлён' });
+}
+
+async function handleDeleteAccount(request, env) {
+  if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
+  if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405);
+
+  var session = await getSession(request, env);
+  if (!session) return json({ error: 'нужен вход', code: 'AUTH_REQUIRED' }, 401);
+
+  var body;
+  try { body = await request.json(); }
+  catch (e) { return json({ error: 'некорректный JSON' }, 400); }
+
+  var password = String(body.password || '');
+  var confirm = String(body.confirm || '');
+
+  if (confirm !== 'УДАЛИТЬ') return json({ error: 'введи УДАЛИТЬ заглавными' }, 400);
+  if (!password) return json({ error: 'нужен пароль' }, 400);
+
+  var user = await env.DB.prepare(
+    'SELECT id, password_hash, salt FROM users WHERE id = ?'
+  ).bind(session.user.user_id).first();
+  if (!user) return json({ error: 'пользователь не найден' }, 404);
+
+  var hash = await hashPassword(password, user.salt);
+  if (hash !== user.password_hash) return json({ error: 'неверный пароль' }, 401);
+
+  var uid = user.id;
+
+  // Удаляем всё связанное
+  await env.DB.prepare('DELETE FROM favorites WHERE user_id = ?').bind(uid).run();
+  await env.DB.prepare('DELETE FROM search_history WHERE user_id = ?').bind(uid).run();
+  await env.DB.prepare('DELETE FROM subscriptions WHERE user_id = ?').bind(uid).run();
+  await env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(uid).run();
+  await env.DB.prepare('DELETE FROM users WHERE id = ?').bind(uid).run();
+
+  return json({ ok: true, message: 'Аккаунт удалён' }, 200, {
+    'Set-Cookie': 'session=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0'
+  });
+}
