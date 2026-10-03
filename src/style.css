@@ -243,5 +243,7 @@ footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);displ
   .ai-msg{max-width:88%}
   .ai-quick{gap:6px}
   .ai-quick-btn{font-size:11.5px;padding:8px 12px}
+  .ai-clear{background:transparent;border:1px solid var(--border-2);color:var(--muted);font-size:11.5px;font-weight:600;padding:6px 10px;border-radius:7px;cursor:pointer;margin-right:44px;font-family:inherit;transition:all .2s}
+  .ai-clear:hover{color:var(--hot);border-color:var(--hot);background:rgba(224,74,95,.06)}
 }
 @media(max-width:640px){.app{padding:14px 14px 40px}.grid{grid-template-columns:1fr}.btn{width:100%}.field{min-width:0}.nav-brand{font-size:13px}.nav-brand img{width:30px;height:30px}.drawer-body{width:280px}}
