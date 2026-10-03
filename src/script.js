@@ -682,4 +682,381 @@
   function doSearch(){
     var cityEl = $('city'), nicheEl = $('niche');
     if(!cityEl || !nicheEl) return;
-    if(!state.user){ open
+    if(!state.user){ openAuth('login'); return; }
+    var city = cityEl.value.trim(), niche = nicheEl.value.trim();
+    if(!city || !niche){ alert('Заполни город и нишу'); return; }
+    state.city = city; state.niche = niche;
+
+    var goBtn = $('go');
+    if(goBtn) goBtn.disabled = true;
+    renderSkeleton();
+    var infoEl = $('info');
+    if(infoEl) infoEl.innerHTML = 'Ищу «' + esc(niche) + '» в ' + esc(city) + '…';
+
+    var locData = null;
+    fetch('/api/locate?city=' + encodeURIComponent(city) + '&niche=' + encodeURIComponent(niche))
+      .then(function(r){ return r.json().then(function(d){ return { status: r.status, data: d }; }); })
+      .then(function(res){
+        if(res.data.code === 'AUTH_REQUIRED'){ openAuth('login'); throw new Error('__AUTH__'); }
+        if(res.data.code === 'LIMIT_REACHED'){ showLimitReached(); throw new Error('__LIMIT__'); }
+        if(res.data.error) throw new Error(res.data.error);
+        locData = res.data;
+        if(state.user && state.user.plan === 'free'){
+          state.user.searches_today = res.data.used || 0;
+          state.resultLimit = res.data.result_limit || 10;
+          updateNavUI();
+        }
+        if(infoEl) infoEl.innerHTML = 'Опрашиваю OpenStreetMap…';
+        var eps = ['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter','https://overpass.openstreetmap.fr/api/interpreter','https://overpass.osm.ch/api/interpreter'];
+        function tryEp(idx, lastErr){
+          if(idx >= eps.length) throw new Error('Overpass недоступен: ' + lastErr);
+          return fetch(eps[idx], {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'data=' + encodeURIComponent(locData.query)
+          }).then(function(r){
+            if(!r.ok) return tryEp(idx + 1, 'HTTP ' + r.status);
+            return r.json().then(function(d){
+              if(d.remark) return tryEp(idx + 1, 'remark');
+              if(!d.elements || !d.elements.length) return tryEp(idx + 1, 'empty');
+              return d;
+            }).catch(function(e){ return tryEp(idx + 1, e.message); });
+          }).catch(function(e){ return tryEp(idx + 1, e.message); });
+        }
+        return tryEp(0, '');
+      })
+      .then(function(overpassData){
+        var loc = locData;
+        var elements = overpassData.elements || [];
+        var leads = [], seen = {};
+        for(var i = 0; i < elements.length; i++){
+          var el = elements[i], t = el.tags || {};
+          var name = t.name || t['name:ru'] || '';
+          if(!name) continue;
+          if(t.website || t['contact:website']) continue;
+          var lat = (el.lat != null) ? el.lat : (el.center && el.center.lat);
+          var lon = (el.lon != null) ? el.lon : (el.center && el.center.lon);
+          var addr = [t['addr:street'], t['addr:housenumber']].filter(Boolean).join(' ');
+          var key = name.toLowerCase() + '|' + (lat ? lat.toFixed(3) : '');
+          if(seen[key]) continue;
+          seen[key] = 1;
+          leads.push({ id: el.id, name: name, phone: t.phone || t['contact:phone'] || '', email: t.email || t['contact:email'] || '', addr: addr, lat: lat, lon: lon, opening: t.opening_hours || '', type: t.amenity || t.shop || t.office || t.healthcare || t.leisure || t.tourism || '' });
+        }
+        var totalFound = leads.length;
+        var rLimit = loc.result_limit || 999;
+        var shown = leads.length > rLimit ? leads.slice(0, rLimit) : leads;
+        state.lastTotal = totalFound;
+        state.leads = shown;
+        var withPhone = 0, withAddr = 0;
+        for(var j = 0; j < shown.length; j++){
+          if(shown[j].phone) withPhone++;
+          if(shown[j].addr) withAddr++;
+        }
+        if(loc.history_id){
+          fetch('/api/history/update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: loc.history_id, count: totalFound, with_phone: withPhone })
+          }).catch(function(){});
+        }
+        animateNumber($('s-total'), totalFound);
+        animateNumber($('s-phone'), withPhone);
+        animateNumber($('s-addr'), withAddr);
+        var sc = $('s-city');
+        if(sc) sc.textContent = loc.country ? (loc.city + ', ' + loc.country) : loc.city;
+        if(infoEl){
+          var txt = 'Найдено <b>' + totalFound + '</b>';
+          if(shown.length < totalFound) txt += ' · показано <b>' + shown.length + '</b>';
+          txt += ' · с телефоном: <b>' + withPhone + '</b>';
+          infoEl.innerHTML = txt;
+        }
+        if(state.user && state.user.plan === 'pro'){
+          loadFavorites().then(function(){ render(); });
+        } else {
+          render();
+        }
+      })
+      .catch(function(e){
+        if(e.message === '__AUTH__' || e.message === '__LIMIT__') return;
+        if(infoEl) infoEl.innerHTML = '<span class="err">Ошибка: ' + esc(e.message) + '</span>';
+        var g = $('grid');
+        if(g) g.innerHTML = '<div class="empty"><h2>Не вышло</h2><p>' + esc(e.message) + '</p></div>';
+      })
+      .then(function(){ if(goBtn) goBtn.disabled = false; });
+  }
+
+  function exportCSV(){
+    if(!state.leads.length){ alert('Нечего экспортировать'); return; }
+    if(state.user && state.user.plan === 'free'){ alert('CSV доступен только в подписке'); return; }
+    function q(v){ return '"' + String(v == null ? '' : v).split('"').join('""') + '"'; }
+    var rows = [['Название','Телефон','Email','Адрес','Тип','Часы','Координаты','Карта']];
+    for(var i = 0; i < state.leads.length; i++){
+      var l = state.leads[i];
+      rows.push([l.name, l.phone, l.email, l.addr, l.type, l.opening, (l.lat && l.lon) ? (l.lat + ',' + l.lon) : '', (l.lat && l.lon) ? ('https://yandex.ru/maps/?pt=' + l.lon + ',' + l.lat + '&z=17') : '']);
+    }
+    var csv = '\uFEFF';
+    for(var r = 0; r < rows.length; r++){
+      var row = [];
+      for(var c = 0; c < rows[r].length; c++) row.push(q(rows[r][c]));
+      csv += row.join(',') + '\n';
+    }
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'leadhunter_' + state.niche + '_' + state.city + '_' + Date.now() + '.csv';
+    a.click();
+  }
+
+  function openHistory(){
+    closeDrawer();
+    setTimeout(function(){
+      if(!state.user){ openAuth('login'); return; }
+      if(state.user.plan !== 'pro'){
+        alert('История поиска доступна только в PRO.\n\nОформи подписку - 199₽/мес или 1199₽/год.');
+        return;
+      }
+      var m = $('histModal');
+      if(!m) return;
+      m.classList.add('show');
+      loadHistory();
+    }, 250);
+  }
+
+  function closeHistory(){
+    var m = $('histModal');
+    if(m) m.classList.remove('show');
+  }
+
+  function loadHistory(){
+    var list = $('histList');
+    var count = $('histCount');
+    if(!list) return;
+    list.innerHTML = '<div class="hist-empty"><div class="hist-empty-icon">⏳</div><h3>Загрузка…</h3></div>';
+    fetch('/api/history').then(function(r){ return r.json(); }).then(function(d){
+      var items = d.items || [];
+      if(count) count.innerHTML = 'Всего: <b>' + items.length + '</b>';
+      if(!items.length){
+        list.innerHTML = '<div class="hist-empty"><div class="hist-empty-icon">📋</div><h3>Пока пусто</h3><p>Сделай первый поиск - он появится здесь</p></div>';
+        return;
+      }
+      var html = '';
+      for(var i = 0; i < items.length; i++){
+        var it = items[i];
+        var date = new Date(it.created_at);
+        var dateStr = date.toLocaleDateString('ru', { day: 'numeric', month: 'short' }) + ' ' + date.toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
+        var countText = it.count > 0 ? '<b>' + it.count + '</b> найдено' : 'без данных';
+        var phoneText = it.with_phone > 0 ? '<b>' + it.with_phone + '</b> с телефоном' : '';
+        html += '<div class="hist-item" data-city="' + esc(it.city) + '" data-niche="' + esc(it.niche) + '">';
+        html += '<div class="hist-item-head"><div class="hist-item-city">' + esc(it.city) + '</div><div class="hist-item-niche">' + esc(it.niche) + '</div></div>';
+        html += '<div class="hist-item-meta">' + countText + (phoneText ? ' · ' + phoneText : '') + '</div>';
+        html += '<div class="hist-item-date"><span>' + dateStr + '</span><span class="hist-item-arrow">Повторить →</span></div>';
+        html += '</div>';
+      }
+      list.innerHTML = html;
+    }).catch(function(){
+      list.innerHTML = '<div class="hist-empty"><div class="hist-empty-icon">⚠️</div><h3>Не удалось загрузить</h3><p>Попробуй позже</p></div>';
+    });
+  }
+
+  function bindHistory(){
+    var bg = $('histBg'), close = $('histClose'), list = $('histList');
+    if(bg) bg.addEventListener('click', closeHistory);
+    if(close) close.addEventListener('click', closeHistory);
+    if(list) list.addEventListener('click', function(e){
+      var el = e.target;
+      while(el && el !== list){
+        if(el.classList && el.classList.contains('hist-item')){
+          var city = el.getAttribute('data-city');
+          var niche = el.getAttribute('data-niche');
+          if(city && niche){
+            var cityEl = $('city'), nicheEl = $('niche');
+            if(cityEl) cityEl.value = city;
+            if(nicheEl) nicheEl.value = niche;
+            closeHistory();
+            setTimeout(doSearch, 300);
+          }
+          return;
+        }
+        el = el.parentNode;
+      }
+    });
+  }
+
+  function openFavorites(){
+    closeDrawer();
+    setTimeout(function(){
+      if(!state.user){ openAuth('login'); return; }
+      if(state.user.plan !== 'pro'){
+        alert('Избранное доступно только в PRO.\n\nОформи подписку - 199₽/мес или 1199₽/год.');
+        return;
+      }
+      var m = $('favModal');
+      if(!m) return;
+      m.classList.add('show');
+      renderFavorites();
+    }, 250);
+  }
+
+  function closeFavorites(){
+    var m = $('favModal');
+    if(m) m.classList.remove('show');
+  }
+
+  function renderFavorites(){
+    var list = $('favList');
+    var count = $('favCount');
+    if(!list) return;
+    var items = state.favorites;
+    if(count) count.innerHTML = 'Всего: <b>' + items.length + '</b>';
+    if(!items.length){
+      list.innerHTML = '<div class="fav-empty"><div class="fav-empty-icon">⭐</div><h3>Пока пусто</h3><p>Нажми ☆ на карточке лида - он появится здесь</p></div>';
+      return;
+    }
+    var html = '';
+    for(var i = 0; i < items.length; i++){
+      var it = items[i];
+      var date = new Date(it.created_at);
+      var dateStr = date.toLocaleDateString('ru', { day: 'numeric', month: 'short' }) + ' ' + date.toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
+      var phoneClean = '';
+      if(it.phone){
+        phoneClean = String(it.phone).split('').filter(function(c){ return c === '+' || (c >= '0' && c <= '9'); }).join('');
+      }
+      var waLink = phoneClean ? 'https://wa.me/' + phoneClean.replace(/^[+]?8/, '7') : '';
+      var yandexLink = 'https://yandex.ru/maps/?text=' + encodeURIComponent(it.name + ' ' + (it.source_city || ''));
+
+      html += '<div class="fav-item">';
+      html += '<div class="fav-item-head">';
+      html += '<div class="fav-item-name">' + esc(it.name) + '</div>';
+      html += '<button type="button" class="fav-item-remove" data-remove-id="' + it.id + '" title="Убрать">×</button>';
+      html += '</div>';
+      html += '<div class="fav-item-meta">';
+      if(it.phone) html += '<div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.13.96.36 1.9.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0122 16.92z"/></svg><b>' + esc(it.phone) + '</b></div>';
+      if(it.addr) html += '<div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>' + esc(it.addr) + '</div>';
+      if(it.source_niche) html += '<div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v6H4z"/><path d="M4 14h16v6H4z"/></svg>' + esc(it.source_niche) + ' · ' + esc(it.source_city || '') + '</div>';
+      html += '</div>';
+      html += '<div class="fav-item-actions">';
+      if(it.phone) html += '<a class="primary" href="tel:' + esc(it.phone) + '">Позвонить</a>';
+      if(waLink) html += '<a href="' + waLink + '" target="_blank" rel="noopener">WhatsApp</a>';
+      html += '<a href="' + yandexLink + '" target="_blank" rel="noopener">Я.Карты</a>';
+      html += '</div>';
+      html += '<div class="fav-item-date"><span>Добавлено: ' + dateStr + '</span></div>';
+      html += '</div>';
+    }
+    list.innerHTML = html;
+
+    var removes = list.querySelectorAll('.fav-item-remove');
+    for(var ri = 0; ri < removes.length; ri++){
+      (function(btn){
+        btn.addEventListener('click', function(){
+          var id = parseInt(btn.getAttribute('data-remove-id'), 10);
+          if(!confirm('Убрать из избранного?')) return;
+          fetch('/api/favorites/remove', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: id })
+          }).then(function(){ return loadFavorites(); }).then(function(){
+            renderFavorites();
+            render();
+          });
+        });
+      })(removes[ri]);
+    }
+  }
+
+  function exportFavoritesCSV(){
+    if(!state.favorites.length){ alert('Избранное пусто'); return; }
+    function q(v){ return '"' + String(v == null ? '' : v).split('"').join('""') + '"'; }
+    var rows = [['Название','Телефон','Email','Адрес','Тип','Часы','Координаты','Карта','Город','Ниша','Дата']];
+    for(var i = 0; i < state.favorites.length; i++){
+      var f = state.favorites[i];
+      rows.push([
+        f.name, f.phone, f.email, f.addr, f.type, f.opening,
+        (f.lat && f.lon) ? (f.lat + ',' + f.lon) : '',
+        (f.lat && f.lon) ? ('https://yandex.ru/maps/?pt=' + f.lon + ',' + f.lat + '&z=17') : '',
+        f.source_city, f.source_niche,
+        new Date(f.created_at).toISOString().slice(0, 10)
+      ]);
+    }
+    var csv = '\uFEFF';
+    for(var r = 0; r < rows.length; r++){
+      var row = [];
+      for(var c = 0; c < rows[r].length; c++) row.push(q(rows[r][c]));
+      csv += row.join(',') + '\n';
+    }
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'favorites_' + Date.now() + '.csv';
+    a.click();
+  }
+
+  function bindFavorites(){
+    var bg = $('favBg'), close = $('favClose'), exportBtn = $('favExport');
+    if(bg) bg.addEventListener('click', closeFavorites);
+    if(close) close.addEventListener('click', closeFavorites);
+    if(exportBtn) exportBtn.addEventListener('click', exportFavoritesCSV);
+  }
+
+  function handleAction(action){
+    if(action === 'login'){ closeDrawer(); setTimeout(function(){ openAuth('login'); }, 250); return; }
+    if(action === 'logout'){ logout(); return; }
+    if(action === 'plans'){ openPlans(); return; }
+    if(action === 'ai'){ openAI(); return; }
+    if(action === 'favorites'){ openFavorites(); return; }
+    if(action === 'history'){ openHistory(); return; }
+    if(action === 'profile'){ closeDrawer(); setTimeout(function(){ alert('Профиль в разработке'); }, 250); return; }
+    if(action === 'settings'){ closeDrawer(); setTimeout(function(){ alert('Настройки в разработке'); }, 250); return; }
+    if(action === 'support'){ closeDrawer(); setTimeout(function(){ alert('Поддержка: напиши в Telegram-канал сервиса'); }, 250); return; }
+    if(action === 'about'){ closeDrawer(); setTimeout(function(){ alert('Lead Hunter - поиск бизнесов без сайта.\nДанные OpenStreetMap.\nВерсия 1.0'); }, 250); return; }
+  }
+
+  function bind(){
+    var goBtn = $('go'), csvBtn = $('csv');
+    var cityEl = $('city'), nicheEl = $('niche'), presetsEl = $('presets');
+    if(goBtn) goBtn.addEventListener('click', doSearch);
+    if(csvBtn) csvBtn.addEventListener('click', exportCSV);
+    if(cityEl) cityEl.addEventListener('keydown', function(e){ if(e.key === 'Enter') doSearch(); });
+    if(nicheEl) nicheEl.addEventListener('keydown', function(e){ if(e.key === 'Enter') doSearch(); });
+    if(presetsEl) presetsEl.addEventListener('click', function(e){
+      var el = e.target;
+      while(el && el !== presetsEl){
+        if(el.classList && el.classList.contains('preset')){ if(nicheEl) nicheEl.value = el.getAttribute('data-v'); return; }
+        el = el.parentNode;
+      }
+    });
+    var navLogin = $('navLogin');
+    var burger = $('burger'), drawerBg = $('drawerBg'), drawerClose = $('drawerClose');
+    var authClose = $('authModalClose'), authBg = $('authModalBg');
+    var authForm = $('authForm'), authSwitch = $('authSwitchLink');
+    var drawerNav = $('drawerNav');
+    if(navLogin) navLogin.addEventListener('click', function(){ openAuth('login'); });
+    if(burger) burger.addEventListener('click', function(){
+      var d = $('drawer');
+      if(d.classList.contains('show')) closeDrawer(); else openDrawer();
+    });
+    if(drawerBg) drawerBg.addEventListener('click', closeDrawer);
+    if(drawerClose) drawerClose.addEventListener('click', closeDrawer);
+    if(drawerNav) drawerNav.addEventListener('click', function(e){
+      var el = e.target;
+      while(el && el !== drawerNav){
+        if(el.classList && el.classList.contains('drawer-item')){ var a = el.getAttribute('data-action'); if(a) handleAction(a); return; }
+        el = el.parentNode;
+      }
+    });
+    if(authClose) authClose.addEventListener('click', closeAuth);
+    if(authBg) authBg.addEventListener('click', closeAuth);
+    if(authForm) authForm.addEventListener('submit', submitAuth);
+    if(authSwitch) authSwitch.addEventListener('click', function(){ openAuth(authMode === 'login' ? 'register' : 'login'); });
+    document.addEventListener('keydown', function(e){
+      if(e.key === 'Escape'){ closeAuth(); closePlans(); closeAI(); closeDrawer(); closeHistory(); closeFavorites(); }
+    });
+  }
+
+  bind();
+  bindPlans();
+  bindAI();
+  bindHistory();
+  bindFavorites();
+  renderPresets();
+  preload().then(refreshMe);
+})();
