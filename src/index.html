@@ -34,6 +34,65 @@
   </div>
 </div>
 
+<div class="plans" id="plansModal">
+  <div class="plans-bg" id="plansBg"></div>
+  <div class="plans-body">
+    <button class="plans-close" id="plansClose">×</button>
+    <div class="plans-head">
+      <h2>Выбери свой тариф</h2>
+      <p>Бесплатно попробуй, подписка - для системной работы.</p>
+    </div>
+    <div class="plans-toggle">
+      <div class="plans-toggle-inner" id="plansToggle">
+        <div class="plans-toggle-slider" id="plansSlider"></div>
+        <button type="button" class="plans-toggle-btn active" data-period="month">Месяц</button>
+        <button type="button" class="plans-toggle-btn" data-period="year">Год<span class="plans-toggle-badge">-65%</span></button>
+      </div>
+    </div>
+    <div class="plans-grid">
+      <div class="plan-card">
+        <div class="plan-content">
+          <div class="plan-name"><h3>FREE</h3><span class="tag free">СТАРТ</span></div>
+          <div class="plan-desc">Попробовать сервис</div>
+          <div class="plan-price"><span class="amount">0<span class="ruble">₽</span></span><span class="period">навсегда</span></div>
+          <div class="plan-save muted">Без карты и обязательств</div>
+          <ul class="plan-features">
+            <li class="on"><span class="check">✓</span><span><b>3 поиска</b> в день</span></li>
+            <li class="on"><span class="check">✓</span><span><b>10 результатов</b> на поиск</span></li>
+            <li class="on"><span class="check">✓</span><span>60+ городов</span></li>
+            <li class="on"><span class="check">✓</span><span>25 ниш</span></li>
+            <li class="off"><span class="cross">×</span><span>CSV-экспорт</span></li>
+            <li class="off"><span class="cross">×</span><span>История поисков</span></li>
+          </ul>
+          <button type="button" class="plan-cta free" disabled>Текущий тариф</button>
+        </div>
+      </div>
+      <div class="plan-card pro">
+        <div class="plan-content">
+          <div class="plan-name"><h3>PRO</h3><span class="tag pro">BEST</span></div>
+          <div class="plan-desc">Для агентств и фрилансеров</div>
+          <div class="plan-price">
+            <span class="amount" id="proAmount">199<span class="ruble">₽</span></span>
+            <span class="period" id="proPeriod">в месяц</span>
+            <span class="old" id="proOld">2388₽</span>
+          </div>
+          <div class="plan-save" id="proSave">Отмена в любой момент</div>
+          <ul class="plan-features">
+            <li class="on"><span class="check">✓</span><span><b>Безлимит</b> поисков</span></li>
+            <li class="on"><span class="check">✓</span><span><b>Все результаты</b></span></li>
+            <li class="on"><span class="check">✓</span><span><b>CSV-экспорт</b></span></li>
+            <li class="on"><span class="check">✓</span><span><b>История</b> поисков</span></li>
+            <li class="on"><span class="check">✓</span><span>Избранное и теги</span></li>
+            <li class="on"><span class="check">✓</span><span>Приоритетная поддержка</span></li>
+          </ul>
+          <button type="button" class="plan-cta pro" id="proCta">Оформить PRO</button>
+        </div>
+      </div>
+    </div>
+    <div class="plans-foot">Платежи <b>скоро</b>. Пока хочешь PRO - напиши в поддержку.</div>
+  </div>
+</div>
+
 <div class="drawer" id="drawer">
   <div class="drawer-bg" id="drawerBg"></div>
   <div class="drawer-body">
