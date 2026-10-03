@@ -997,6 +997,122 @@
     if(exportBtn) exportBtn.addEventListener('click', exportFavoritesCSV);
   }
 
+  function openProfile(){
+    closeDrawer();
+    setTimeout(function(){
+      if(!state.user){ openAuth('login'); return; }
+      var m = $('profModal');
+      if(!m) return;
+      var initial = state.user.email.charAt(0).toUpperCase();
+      $('profAvatar').textContent = initial;
+      $('profEmail').textContent = state.user.email;
+      var badge = $('profBadge');
+      badge.textContent = state.user.plan === 'pro' ? 'PRO' : 'FREE';
+      badge.className = 'prof-badge' + (state.user.plan === 'pro' ? ' pro' : '');
+      $('profCurrent').value = '';
+      $('profNew').value = '';
+      $('profRepeat').value = '';
+      $('profMsg').textContent = '';
+      $('profMsg').className = 'prof-msg';
+      $('profDeleteForm').style.display = 'none';
+      $('profDeleteConfirm').value = '';
+      $('profDeletePassword').value = '';
+      m.classList.add('show');
+    }, 250);
+  }
+
+  function closeProfile(){
+    var m = $('profModal');
+    if(m) m.classList.remove('show');
+  }
+
+  function changePassword(){
+    var current = $('profCurrent').value;
+    var newPass = $('profNew').value;
+    var repeat = $('profRepeat').value;
+    var msg = $('profMsg');
+    var btn = $('profSave');
+    if(!current || !newPass || !repeat){ msg.textContent = 'Заполни все поля'; msg.className = 'prof-msg err'; return; }
+    if(newPass.length < 6){ msg.textContent = 'Пароль минимум 6 символов'; msg.className = 'prof-msg err'; return; }
+    if(newPass !== repeat){ msg.textContent = 'Пароли не совпадают'; msg.className = 'prof-msg err'; return; }
+    if(current === newPass){ msg.textContent = 'Новый пароль совпадает со старым'; msg.className = 'prof-msg err'; return; }
+    btn.disabled = true;
+    msg.textContent = 'Сохранение…'; msg.className = 'prof-msg';
+    fetch('/api/profile/password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ current_password: current, new_password: newPass })
+    }).then(function(r){ return r.json().then(function(d){ return { ok: r.ok, data: d }; }); })
+      .then(function(res){
+        btn.disabled = false;
+        if(!res.ok){ msg.textContent = res.data.error || 'Ошибка'; msg.className = 'prof-msg err'; return; }
+        msg.textContent = '✓ Пароль обновлён'; msg.className = 'prof-msg ok';
+        $('profCurrent').value = '';
+        $('profNew').value = '';
+        $('profRepeat').value = '';
+        setTimeout(function(){ msg.textContent = ''; }, 3000);
+      })
+      .catch(function(e){
+        btn.disabled = false;
+        msg.textContent = 'Ошибка сети: ' + e.message;
+        msg.className = 'prof-msg err';
+      });
+  }
+
+  function deleteAccount(){
+    var confirmText = $('profDeleteConfirm').value.trim();
+    var password = $('profDeletePassword').value;
+    var btn = $('profDeleteFinal');
+    var msg = $('profMsg');
+    if(confirmText !== 'УДАЛИТЬ'){ msg.textContent = 'Введи слово УДАЛИТЬ точно'; msg.className = 'prof-msg err'; return; }
+    if(!password){ msg.textContent = 'Нужен пароль'; msg.className = 'prof-msg err'; return; }
+    if(!confirm('Это действие нельзя отменить. Продолжить?')) return;
+    btn.disabled = true;
+    msg.textContent = 'Удаление…'; msg.className = 'prof-msg';
+    fetch('/api/profile/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirm: confirmText, password: password })
+    }).then(function(r){ return r.json().then(function(d){ return { ok: r.ok, data: d }; }); })
+      .then(function(res){
+        btn.disabled = false;
+        if(!res.ok){ msg.textContent = res.data.error || 'Ошибка'; msg.className = 'prof-msg err'; return; }
+        alert('Аккаунт удалён');
+        state.user = null;
+        state.favorites = [];
+        state.leads = [];
+        closeProfile();
+        updateNavUI();
+        $('grid').innerHTML = '';
+        var infoEl = $('info');
+        if(infoEl) infoEl.textContent = 'Введи город и нишу, нажми «Найти клиентов»';
+      })
+      .catch(function(e){
+        btn.disabled = false;
+        msg.textContent = 'Ошибка сети: ' + e.message;
+        msg.className = 'prof-msg err';
+      });
+  }
+
+  function bindProfile(){
+    var bg = $('profBg'), close = $('profClose');
+    var saveBtn = $('profSave');
+    var delToggle = $('profDeleteToggle'), delForm = $('profDeleteForm');
+    var delFinal = $('profDeleteFinal'), delCancel = $('profDeleteCancel');
+    if(bg) bg.addEventListener('click', closeProfile);
+    if(close) close.addEventListener('click', closeProfile);
+    if(saveBtn) saveBtn.addEventListener('click', changePassword);
+    if(delToggle) delToggle.addEventListener('click', function(){
+      delForm.style.display = delForm.style.display === 'none' ? 'block' : 'none';
+    });
+    if(delCancel) delCancel.addEventListener('click', function(){
+      delForm.style.display = 'none';
+      $('profDeleteConfirm').value = '';
+      $('profDeletePassword').value = '';
+    });
+    if(delFinal) delFinal.addEventListener('click', deleteAccount);
+  }
+
   function handleAction(action){
     if(action === 'login'){ closeDrawer(); setTimeout(function(){ openAuth('login'); }, 250); return; }
     if(action === 'logout'){ logout(); return; }
@@ -1004,7 +1120,7 @@
     if(action === 'ai'){ openAI(); return; }
     if(action === 'favorites'){ openFavorites(); return; }
     if(action === 'history'){ openHistory(); return; }
-    if(action === 'profile'){ closeDrawer(); setTimeout(function(){ alert('Профиль в разработке'); }, 250); return; }
+    if(action === 'profile'){ openProfile(); return; }
     if(action === 'settings'){ closeDrawer(); setTimeout(function(){ alert('Настройки в разработке'); }, 250); return; }
     if(action === 'support'){ closeDrawer(); setTimeout(function(){ alert('Поддержка: напиши в Telegram-канал сервиса'); }, 250); return; }
     if(action === 'about'){ closeDrawer(); setTimeout(function(){ alert('Lead Hunter - поиск бизнесов без сайта.\nДанные OpenStreetMap.\nВерсия 1.0'); }, 250); return; }
@@ -1048,7 +1164,7 @@
     if(authForm) authForm.addEventListener('submit', submitAuth);
     if(authSwitch) authSwitch.addEventListener('click', function(){ openAuth(authMode === 'login' ? 'register' : 'login'); });
     document.addEventListener('keydown', function(e){
-      if(e.key === 'Escape'){ closeAuth(); closePlans(); closeAI(); closeDrawer(); closeHistory(); closeFavorites(); }
+      if(e.key === 'Escape'){ closeAuth(); closePlans(); closeAI(); closeDrawer(); closeHistory(); closeFavorites(); closeProfile(); }
     });
   }
 
@@ -1057,6 +1173,7 @@
   bindAI();
   bindHistory();
   bindFavorites();
+  bindProfile();
   renderPresets();
   preload().then(refreshMe);
 })();
