@@ -1229,7 +1229,7 @@
     });
   }
 
-  bind();
+    bind();
   bindPlans();
   bindAI();
   bindHistory();
@@ -1237,12 +1237,10 @@
   bindProfile();
   bindOnboarding();
   renderPresets();
-   preload().then(function(){
-    refreshMe();
+  preload().then(function(){
+    refreshMe().catch(function(e){ console.error('refreshMe err', e); });
   }).catch(function(e){
-    console.error('boot err', e);
-    var pl = $('preloader'), app = $('app');
-    if(pl) pl.classList.add('hide');
-    if(app) app.classList.add('show');
+    console.error('preload err', e);
   });
+  // Онбординг убран из автозапуска - вызывается вручную через меню
 })();
