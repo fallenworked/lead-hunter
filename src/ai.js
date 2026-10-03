@@ -61,7 +61,7 @@ async function callGemini(messages, env) {
     });
   }
 
-  var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + key;
+  var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=' + key;
   var r = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
