@@ -734,7 +734,7 @@
     if(action === 'about'){ closeDrawer(); setTimeout(function(){ alert('Lead Hunter - поиск бизнесов без сайта.\nДанные OpenStreetMap.\nВерсия 1.0'); }, 250); return; }
   }
 
-  function openHistory(){
+    function openHistory(){
     closeDrawer();
     setTimeout(function(){
       if(!state.user){ openAuth('login'); return; }
@@ -742,10 +742,75 @@
         alert('История поиска доступна только в PRO.\n\nОформи подписку - 199₽/мес или 1199₽/год.');
         return;
       }
-      alert('История поиска - в разработке. Скоро здесь будет список всех поисков.');
+      var m = $('histModal');
+      if(!m) return;
+      m.classList.add('show');
+      loadHistory();
     }, 250);
   }
 
+  function closeHistory(){
+    var m = $('histModal');
+    if(m) m.classList.remove('show');
+  }
+
+  function loadHistory(){
+    var list = $('histList');
+    var count = $('histCount');
+    if(!list) return;
+    list.innerHTML = '<div class="hist-empty"><div class="hist-empty-icon">⏳</div><h3>Загрузка…</h3></div>';
+    fetch('/api/history').then(function(r){ return r.json(); }).then(function(d){
+      var items = d.items || [];
+      if(count) count.innerHTML = 'Всего: <b>' + items.length + '</b>';
+      if(!items.length){
+        list.innerHTML = '<div class="hist-empty"><div class="hist-empty-icon">📋</div><h3>Пока пусто</h3><p>Сделай первый поиск - он появится здесь</p></div>';
+        return;
+      }
+      var html = '';
+      for(var i = 0; i < items.length; i++){
+        var it = items[i];
+        var date = new Date(it.created_at);
+        var dateStr = date.toLocaleDateString('ru', { day: 'numeric', month: 'short' }) + ' ' + date.toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
+        var countText = it.count > 0 ? '<b>' + it.count + '</b> найдено' : 'без данных';
+        var phoneText = it.with_phone > 0 ? '<b>' + it.with_phone + '</b> с телефоном' : '';
+        html += '<div class="hist-item" data-city="' + esc(it.city) + '" data-niche="' + esc(it.niche) + '">';
+        html += '<div class="hist-item-head"><div class="hist-item-city">' + esc(it.city) + '</div><div class="hist-item-niche">' + esc(it.niche) + '</div></div>';
+        html += '<div class="hist-item-meta">' + countText + (phoneText ? ' · ' + phoneText : '') + '</div>';
+        html += '<div class="hist-item-date"><span>' + dateStr + '</span><span class="hist-item-arrow">Повторить →</span></div>';
+        html += '</div>';
+      }
+      list.innerHTML = html;
+    }).catch(function(){
+      list.innerHTML = '<div class="hist-empty"><div class="hist-empty-icon">⚠️</div><h3>Не удалось загрузить</h3><p>Попробуй позже</p></div>';
+    });
+  }
+
+  function bindHistory(){
+    var bg = $('histBg'), close = $('histClose'), list = $('histList');
+    if(bg) bg.addEventListener('click', closeHistory);
+    if(close) close.addEventListener('click', closeHistory);
+    if(list) list.addEventListener('click', function(e){
+      var el = e.target;
+      while(el && el !== list){
+        if(el.classList && el.classList.contains('hist-item')){
+          var city = el.getAttribute('data-city');
+          var niche = el.getAttribute('data-niche');
+          if(city && niche){
+            var cityEl = $('city'), nicheEl = $('niche');
+            if(cityEl) cityEl.value = city;
+            if(nicheEl) nicheEl.value = niche;
+            closeHistory();
+            setTimeout(doSearch, 300);
+          }
+          return;
+        }
+        el = el.parentNode;
+      }
+    });
+    document.addEventListener('keydown', function(e){
+      if(e.key === 'Escape'){ closeHistory(); }
+    });
+  }
   function bind(){
     var goBtn = $('go'), csvBtn = $('csv');
     var cityEl = $('city'), nicheEl = $('niche'), presetsEl = $('presets');
