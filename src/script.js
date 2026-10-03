@@ -1,6 +1,6 @@
 (function(){
   'use strict';
-  var state = { leads: [], city: '', niche: '', user: null, limit: 3, resultLimit: 10, lastTotal: 0 };
+  var state = { leads: [], city: '', niche: '', user: null, limit: 3, resultLimit: 10, lastTotal: 0, favorites: [] };
   function $(id){ return document.getElementById(id); }
   function esc(s){
     s = String(s == null ? '' : s);
@@ -74,6 +74,14 @@
 
   function pad2(n){ n = String(n); return n.length < 2 ? '0' + n : n; }
 
+  function isFavorite(lead){
+    for(var i = 0; i < state.favorites.length; i++){
+      var f = state.favorites[i];
+      if(f.name === lead.name && (f.addr || '') === (lead.addr || '')) return f;
+    }
+    return null;
+  }
+
   function render(){
     var g = $('grid');
     if(!g) return;
@@ -86,6 +94,7 @@
     if(state.user && state.user.plan === 'free' && state.lastTotal > state.resultLimit){
       html += '<div class="notice">Показано <b>' + state.resultLimit + '</b> из <b>' + state.lastTotal + '</b>. <a id="noticeUpgrade">Оформить подписку</a></div>';
     }
+    var canFav = state.user && state.user.plan === 'pro';
     for(var i = 0; i < leads.length; i++){
       var l = leads[i];
       var badge = l.phone ? '<div class="badge">✓ контакт</div>' : '<div class="badge nocontact">только адрес</div>';
@@ -98,7 +107,11 @@
       var gisLink = 'https://2gis.ru/search/' + encodeURIComponent(l.name + ' ' + state.city);
       var routeLink = (l.lat && l.lon) ? 'https://yandex.ru/maps/?rtext=~' + l.lat + ',' + l.lon : '';
 
-      html += '<article class="card">';
+      var fav = canFav ? isFavorite(l) : null;
+      var starHtml = canFav ? '<button type="button" class="star' + (fav ? ' on' : '') + '" data-fav-idx="' + i + '">' + (fav ? '★' : '☆') + '</button>' : '';
+
+      html += '<article class="card' + (starHtml ? ' has-star' : '') + '">';
+      html += starHtml;
       html += '<div class="card-head"><div style="flex:1;min-width:0">';
       html += '<span class="card-idx">#' + pad2(i+1) + (l.type ? ' · ' + esc(String(l.type).toUpperCase()) : '') + '</span>';
       html += '<h3>' + esc(l.name) + '</h3></div>' + badge + '</div>';
@@ -119,6 +132,69 @@
     g.innerHTML = html;
     var nu = $('noticeUpgrade');
     if(nu) nu.addEventListener('click', openPlans);
+
+    var stars = g.querySelectorAll('.star');
+    for(var si = 0; si < stars.length; si++){
+      (function(btn){
+        btn.addEventListener('click', function(e){
+          e.preventDefault();
+          e.stopPropagation();
+          var idx = parseInt(btn.getAttribute('data-fav-idx'), 10);
+          toggleFavorite(idx, btn);
+        });
+      })(stars[si]);
+    }
+  }
+
+  function toggleFavorite(idx, btn){
+    if(!state.user || state.user.plan !== 'pro'){
+      alert('Избранное доступно только в PRO');
+      return;
+    }
+    var lead = state.leads[idx];
+    if(!lead) return;
+    var existing = isFavorite(lead);
+    btn.disabled = true;
+    if(existing){
+      fetch('/api/favorites/remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: existing.id })
+      }).then(function(){ return loadFavorites(); }).then(function(){
+        btn.classList.remove('on');
+        btn.textContent = '☆';
+        btn.disabled = false;
+      }).catch(function(){ btn.disabled = false; });
+    } else {
+      fetch('/api/favorites/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: lead.name,
+          phone: lead.phone || '',
+          email: lead.email || '',
+          addr: lead.addr || '',
+          type: lead.type || '',
+          opening: lead.opening || '',
+          lat: lead.lat,
+          lon: lead.lon,
+          source_city: state.city,
+          source_niche: state.niche
+        })
+      }).then(function(){ return loadFavorites(); }).then(function(){
+        btn.classList.add('on');
+        btn.textContent = '★';
+        btn.disabled = false;
+      }).catch(function(){ btn.disabled = false; });
+    }
+  }
+
+  function loadFavorites(){
+    if(!state.user || state.user.plan !== 'pro'){ state.favorites = []; return Promise.resolve([]); }
+    return fetch('/api/favorites').then(function(r){ return r.json(); }).then(function(d){
+      state.favorites = d.items || [];
+      return state.favorites;
+    }).catch(function(){ state.favorites = []; return []; });
   }
 
   function updateNavUI(){
@@ -155,6 +231,7 @@
       nav.innerHTML =
         '<div class="drawer-section">Работа</div>' +
         '<div class="drawer-item ai-item" data-action="ai"><span class="ai-dot"></span>AI Агент' + aiLabel + '</div>' +
+        '<div class="drawer-item" data-action="favorites">Избранное</div>' +
         '<div class="drawer-item" data-action="history">История поиска</div>' +
         '<div class="drawer-section">Аккаунт</div>' +
         '<div class="drawer-item" data-action="profile">Профиль<span class="right">→</span></div>' +
@@ -181,6 +258,9 @@
       state.limit = d.limit || 3;
       state.resultLimit = d.result_limit || 10;
       updateNavUI();
+      if(state.user && state.user.plan === 'pro'){
+        return loadFavorites().then(function(){ return d; });
+      }
       return d;
     }).catch(function(){ return null; });
   }
@@ -566,6 +646,7 @@
         state.user = res.data.user;
         state.limit = res.data.limit || 3;
         state.resultLimit = res.data.result_limit || 10;
+        if(state.user.plan === 'pro'){ loadFavorites(); }
         updateNavUI();
         msg.textContent = 'Готово!'; msg.className = 'modal-msg ok';
         setTimeout(function(){ closeAuth(); doSearch(); }, 400);
@@ -579,7 +660,7 @@
 
   function logout(){
     fetch('/api/auth/logout', { method: 'POST' }).then(function(){
-      state.user = null; state.leads = []; state.lastTotal = 0;
+      state.user = null; state.leads = []; state.lastTotal = 0; state.favorites = [];
       aiHistory = [];
       try { localStorage.removeItem(AI_STORAGE_KEY); } catch(e){}
       updateNavUI();
@@ -601,262 +682,4 @@
   function doSearch(){
     var cityEl = $('city'), nicheEl = $('niche');
     if(!cityEl || !nicheEl) return;
-    if(!state.user){ openAuth('login'); return; }
-    var city = cityEl.value.trim(), niche = nicheEl.value.trim();
-    if(!city || !niche){ alert('Заполни город и нишу'); return; }
-    state.city = city; state.niche = niche;
-
-    var goBtn = $('go');
-    if(goBtn) goBtn.disabled = true;
-    renderSkeleton();
-    var infoEl = $('info');
-    if(infoEl) infoEl.innerHTML = 'Ищу «' + esc(niche) + '» в ' + esc(city) + '…';
-
-    var locData = null;
-    fetch('/api/locate?city=' + encodeURIComponent(city) + '&niche=' + encodeURIComponent(niche))
-      .then(function(r){ return r.json().then(function(d){ return { status: r.status, data: d }; }); })
-      .then(function(res){
-        if(res.data.code === 'AUTH_REQUIRED'){ openAuth('login'); throw new Error('__AUTH__'); }
-        if(res.data.code === 'LIMIT_REACHED'){ showLimitReached(); throw new Error('__LIMIT__'); }
-        if(res.data.error) throw new Error(res.data.error);
-        locData = res.data;
-        if(state.user && state.user.plan === 'free'){
-          state.user.searches_today = res.data.used || 0;
-          state.resultLimit = res.data.result_limit || 10;
-          updateNavUI();
-        }
-        if(infoEl) infoEl.innerHTML = 'Опрашиваю OpenStreetMap…';
-        var eps = ['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter','https://overpass.openstreetmap.fr/api/interpreter','https://overpass.osm.ch/api/interpreter'];
-        function tryEp(idx, lastErr){
-          if(idx >= eps.length) throw new Error('Overpass недоступен: ' + lastErr);
-          return fetch(eps[idx], {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: 'data=' + encodeURIComponent(locData.query)
-          }).then(function(r){
-            if(!r.ok) return tryEp(idx + 1, 'HTTP ' + r.status);
-            return r.json().then(function(d){
-              if(d.remark) return tryEp(idx + 1, 'remark');
-              if(!d.elements || !d.elements.length) return tryEp(idx + 1, 'empty');
-              return d;
-            }).catch(function(e){ return tryEp(idx + 1, e.message); });
-          }).catch(function(e){ return tryEp(idx + 1, e.message); });
-        }
-        return tryEp(0, '');
-      })
-      .then(function(overpassData){
-        var loc = locData;
-        var elements = overpassData.elements || [];
-        var leads = [], seen = {};
-        for(var i = 0; i < elements.length; i++){
-          var el = elements[i], t = el.tags || {};
-          var name = t.name || t['name:ru'] || '';
-          if(!name) continue;
-          if(t.website || t['contact:website']) continue;
-          var lat = (el.lat != null) ? el.lat : (el.center && el.center.lat);
-          var lon = (el.lon != null) ? el.lon : (el.center && el.center.lon);
-          var addr = [t['addr:street'], t['addr:housenumber']].filter(Boolean).join(' ');
-          var key = name.toLowerCase() + '|' + (lat ? lat.toFixed(3) : '');
-          if(seen[key]) continue;
-          seen[key] = 1;
-          leads.push({ id: el.id, name: name, phone: t.phone || t['contact:phone'] || '', email: t.email || t['contact:email'] || '', addr: addr, lat: lat, lon: lon, opening: t.opening_hours || '', type: t.amenity || t.shop || t.office || t.healthcare || t.leisure || t.tourism || '' });
-        }
-        var totalFound = leads.length;
-        var rLimit = loc.result_limit || 999;
-        var shown = leads.length > rLimit ? leads.slice(0, rLimit) : leads;
-        state.lastTotal = totalFound;
-        state.leads = shown;
-        var withPhone = 0, withAddr = 0;
-        for(var j = 0; j < shown.length; j++){
-          if(shown[j].phone) withPhone++;
-          if(shown[j].addr) withAddr++;
-        }
-        if(loc.history_id){
-          fetch('/api/history/update', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: loc.history_id, count: totalFound, with_phone: withPhone })
-          }).catch(function(){});
-        }
-        animateNumber($('s-total'), totalFound);
-        animateNumber($('s-phone'), withPhone);
-        animateNumber($('s-addr'), withAddr);
-        var sc = $('s-city');
-        if(sc) sc.textContent = loc.country ? (loc.city + ', ' + loc.country) : loc.city;
-        if(infoEl){
-          var txt = 'Найдено <b>' + totalFound + '</b>';
-          if(shown.length < totalFound) txt += ' · показано <b>' + shown.length + '</b>';
-          txt += ' · с телефоном: <b>' + withPhone + '</b>';
-          infoEl.innerHTML = txt;
-        }
-        render();
-      })
-      .catch(function(e){
-        if(e.message === '__AUTH__' || e.message === '__LIMIT__') return;
-        if(infoEl) infoEl.innerHTML = '<span class="err">Ошибка: ' + esc(e.message) + '</span>';
-        var g = $('grid');
-        if(g) g.innerHTML = '<div class="empty"><h2>Не вышло</h2><p>' + esc(e.message) + '</p></div>';
-      })
-      .then(function(){ if(goBtn) goBtn.disabled = false; });
-  }
-
-  function exportCSV(){
-    if(!state.leads.length){ alert('Нечего экспортировать'); return; }
-    if(state.user && state.user.plan === 'free'){ alert('CSV доступен только в подписке'); return; }
-    function q(v){ return '"' + String(v == null ? '' : v).split('"').join('""') + '"'; }
-    var rows = [['Название','Телефон','Email','Адрес','Тип','Часы','Координаты','Карта']];
-    for(var i = 0; i < state.leads.length; i++){
-      var l = state.leads[i];
-      rows.push([l.name, l.phone, l.email, l.addr, l.type, l.opening, (l.lat && l.lon) ? (l.lat + ',' + l.lon) : '', (l.lat && l.lon) ? ('https://yandex.ru/maps/?pt=' + l.lon + ',' + l.lat + '&z=17') : '']);
-    }
-    var csv = '\uFEFF';
-    for(var r = 0; r < rows.length; r++){
-      var row = [];
-      for(var c = 0; c < rows[r].length; c++) row.push(q(rows[r][c]));
-      csv += row.join(',') + '\n';
-    }
-    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'leadhunter_' + state.niche + '_' + state.city + '_' + Date.now() + '.csv';
-    a.click();
-  }
-
-  function handleAction(action){
-    if(action === 'login'){ closeDrawer(); setTimeout(function(){ openAuth('login'); }, 250); return; }
-    if(action === 'logout'){ logout(); return; }
-    if(action === 'plans'){ openPlans(); return; }
-    if(action === 'ai'){ openAI(); return; }
-    if(action === 'profile'){ closeDrawer(); setTimeout(function(){ alert('Профиль в разработке'); }, 250); return; }
-    if(action === 'history'){ openHistory(); return; }
-    if(action === 'settings'){ closeDrawer(); setTimeout(function(){ alert('Настройки в разработке'); }, 250); return; }
-    if(action === 'support'){ closeDrawer(); setTimeout(function(){ alert('Поддержка: напиши в Telegram-канал сервиса'); }, 250); return; }
-    if(action === 'about'){ closeDrawer(); setTimeout(function(){ alert('Lead Hunter - поиск бизнесов без сайта.\nДанные OpenStreetMap.\nВерсия 1.0'); }, 250); return; }
-  }
-
-    function openHistory(){
-    closeDrawer();
-    setTimeout(function(){
-      if(!state.user){ openAuth('login'); return; }
-      if(state.user.plan !== 'pro'){
-        alert('История поиска доступна только в PRO.\n\nОформи подписку - 199₽/мес или 1199₽/год.');
-        return;
-      }
-      var m = $('histModal');
-      if(!m) return;
-      m.classList.add('show');
-      loadHistory();
-    }, 250);
-  }
-
-  function closeHistory(){
-    var m = $('histModal');
-    if(m) m.classList.remove('show');
-  }
-
-  function loadHistory(){
-    var list = $('histList');
-    var count = $('histCount');
-    if(!list) return;
-    list.innerHTML = '<div class="hist-empty"><div class="hist-empty-icon">⏳</div><h3>Загрузка…</h3></div>';
-    fetch('/api/history').then(function(r){ return r.json(); }).then(function(d){
-      var items = d.items || [];
-      if(count) count.innerHTML = 'Всего: <b>' + items.length + '</b>';
-      if(!items.length){
-        list.innerHTML = '<div class="hist-empty"><div class="hist-empty-icon">📋</div><h3>Пока пусто</h3><p>Сделай первый поиск - он появится здесь</p></div>';
-        return;
-      }
-      var html = '';
-      for(var i = 0; i < items.length; i++){
-        var it = items[i];
-        var date = new Date(it.created_at);
-        var dateStr = date.toLocaleDateString('ru', { day: 'numeric', month: 'short' }) + ' ' + date.toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
-        var countText = it.count > 0 ? '<b>' + it.count + '</b> найдено' : 'без данных';
-        var phoneText = it.with_phone > 0 ? '<b>' + it.with_phone + '</b> с телефоном' : '';
-        html += '<div class="hist-item" data-city="' + esc(it.city) + '" data-niche="' + esc(it.niche) + '">';
-        html += '<div class="hist-item-head"><div class="hist-item-city">' + esc(it.city) + '</div><div class="hist-item-niche">' + esc(it.niche) + '</div></div>';
-        html += '<div class="hist-item-meta">' + countText + (phoneText ? ' · ' + phoneText : '') + '</div>';
-        html += '<div class="hist-item-date"><span>' + dateStr + '</span><span class="hist-item-arrow">Повторить →</span></div>';
-        html += '</div>';
-      }
-      list.innerHTML = html;
-    }).catch(function(){
-      list.innerHTML = '<div class="hist-empty"><div class="hist-empty-icon">⚠️</div><h3>Не удалось загрузить</h3><p>Попробуй позже</p></div>';
-    });
-  }
-
-  function bindHistory(){
-    var bg = $('histBg'), close = $('histClose'), list = $('histList');
-    if(bg) bg.addEventListener('click', closeHistory);
-    if(close) close.addEventListener('click', closeHistory);
-    if(list) list.addEventListener('click', function(e){
-      var el = e.target;
-      while(el && el !== list){
-        if(el.classList && el.classList.contains('hist-item')){
-          var city = el.getAttribute('data-city');
-          var niche = el.getAttribute('data-niche');
-          if(city && niche){
-            var cityEl = $('city'), nicheEl = $('niche');
-            if(cityEl) cityEl.value = city;
-            if(nicheEl) nicheEl.value = niche;
-            closeHistory();
-            setTimeout(doSearch, 300);
-          }
-          return;
-        }
-        el = el.parentNode;
-      }
-    });
-    document.addEventListener('keydown', function(e){
-      if(e.key === 'Escape'){ closeHistory(); }
-    });
-  }
-  function bind(){
-    var goBtn = $('go'), csvBtn = $('csv');
-    var cityEl = $('city'), nicheEl = $('niche'), presetsEl = $('presets');
-    if(goBtn) goBtn.addEventListener('click', doSearch);
-    if(csvBtn) csvBtn.addEventListener('click', exportCSV);
-    if(cityEl) cityEl.addEventListener('keydown', function(e){ if(e.key === 'Enter') doSearch(); });
-    if(nicheEl) nicheEl.addEventListener('keydown', function(e){ if(e.key === 'Enter') doSearch(); });
-    if(presetsEl) presetsEl.addEventListener('click', function(e){
-      var el = e.target;
-      while(el && el !== presetsEl){
-        if(el.classList && el.classList.contains('preset')){ if(nicheEl) nicheEl.value = el.getAttribute('data-v'); return; }
-        el = el.parentNode;
-      }
-    });
-    var navLogin = $('navLogin');
-    var burger = $('burger'), drawerBg = $('drawerBg'), drawerClose = $('drawerClose');
-    var authClose = $('authModalClose'), authBg = $('authModalBg');
-    var authForm = $('authForm'), authSwitch = $('authSwitchLink');
-    var drawerNav = $('drawerNav');
-    if(navLogin) navLogin.addEventListener('click', function(){ openAuth('login'); });
-    if(burger) burger.addEventListener('click', function(){
-      var d = $('drawer');
-      if(d.classList.contains('show')) closeDrawer(); else openDrawer();
-    });
-    if(drawerBg) drawerBg.addEventListener('click', closeDrawer);
-    if(drawerClose) drawerClose.addEventListener('click', closeDrawer);
-    if(drawerNav) drawerNav.addEventListener('click', function(e){
-      var el = e.target;
-      while(el && el !== drawerNav){
-        if(el.classList && el.classList.contains('drawer-item')){ var a = el.getAttribute('data-action'); if(a) handleAction(a); return; }
-        el = el.parentNode;
-      }
-    });
-    if(authClose) authClose.addEventListener('click', closeAuth);
-    if(authBg) authBg.addEventListener('click', closeAuth);
-    if(authForm) authForm.addEventListener('submit', submitAuth);
-    if(authSwitch) authSwitch.addEventListener('click', function(){ openAuth(authMode === 'login' ? 'register' : 'login'); });
-    document.addEventListener('keydown', function(e){
-      if(e.key === 'Escape'){ closeAuth(); closePlans(); closeAI(); closeDrawer(); }
-    });
-  }
-
-   bind();
-  bindPlans();
-  bindAI();
-  bindHistory();;
-  renderPresets();
-  preload().then(refreshMe);
-})();
+    if(!state.user){ open
