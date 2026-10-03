@@ -2,6 +2,7 @@ import html from './index.html';
 import logo from './logo.png';
 import styleCss from './style.css';
 import scriptJs from './script.js';
+import { handleChat, handleAILimit } from './ai.js';
 
 export default {
   async fetch(request, env) {
