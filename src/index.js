@@ -3,19 +3,13 @@ import logo from './logo.png';
 import styleCss from './style.css';
 import scriptJs from './script.js';
 import { handleChat, handleAILimit } from './ai.js';
-import { handleTelegramAuth } from './telegram.js';
-import { handleGoogleStart, handleGoogleCallback } from './google.js';
 import { termsPage, privacyPage, refundPage, offerPage } from './legal.js';
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    if (url.pathname === '/style.css') {
-      return new Response(styleCss, { headers: { 'Content-Type': 'text/css; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
-    }
-    if (url.pathname === '/script.js') {
-      return new Response(scriptJs, { headers: { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
-    }
+    if (url.pathname === '/style.css') return new Response(styleCss, { headers: { 'Content-Type': 'text/css; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
+    if (url.pathname === '/script.js') return new Response(scriptJs, { headers: { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
     if (url.pathname === '/api/auth/register') return handleRegister(request, env);
     if (url.pathname === '/api/auth/login') return handleLogin(request, env);
     if (url.pathname === '/api/auth/logout') return handleLogout(request, env);
@@ -34,12 +28,7 @@ export default {
     if (url.pathname === '/privacy') return new Response(privacyPage(), { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=86400' } });
     if (url.pathname === '/refund') return new Response(refundPage(), { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=86400' } });
     if (url.pathname === '/offer') return new Response(offerPage(), { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=86400' } });
-    if (url.pathname === '/api/auth/telegram') return handleTelegramAuth(request, env);
-    if (url.pathname === '/api/auth/google/start') return handleGoogleStart(request, env);
-    if (url.pathname === '/api/auth/google/callback') return handleGoogleCallback(request, env);
-    if (url.pathname === '/logo.png') {
-      return new Response(logo, { headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' } });
-    }
+    if (url.pathname === '/logo.png') return new Response(logo, { headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' } });
     return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
   }
 };
@@ -136,21 +125,13 @@ const CITIES = {
   'дубай': [25.2048, 55.2708, 7000, 'AE', 'Дубай']
 };
 
-const COUNTRIES = {
-  RU: 'Россия', KZ: 'Казахстан', BY: 'Беларусь', UA: 'Украина',
-  UZ: 'Узбекистан', GE: 'Грузия', AM: 'Армения', AZ: 'Азербайджан',
-  TR: 'Турция', AE: 'ОАЭ', XX: 'Мир'
-};
+const COUNTRIES = { RU:'Россия', KZ:'Казахстан', BY:'Беларусь', UA:'Украина', UZ:'Узбекистан', GE:'Грузия', AM:'Армения', AZ:'Азербайджан', TR:'Турция', AE:'ОАЭ', XX:'Мир' };
 
 const FREE_LIMIT = 3;
 const FREE_RESULT_LIMIT = 10;
 const PRO_RESULT_LIMIT = 999;
 const SESSION_DAYS = 30;
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type'
-};
+const CORS = { 'Access-Control-Allow-Origin':'*', 'Access-Control-Allow-Methods':'GET, POST, OPTIONS', 'Access-Control-Allow-Headers':'Content-Type' };
 
 function json(data, status, extra) {
   status = status || 200;
@@ -161,164 +142,92 @@ function json(data, status, extra) {
   for (var k2 in extra) h[k2] = extra[k2];
   return new Response(JSON.stringify(data), { status: status, headers: h });
 }
-
-function today() {
-  return new Date().toISOString().slice(0, 10);
-}
-
+function today() { return new Date().toISOString().slice(0, 10); }
 async function hashPassword(password, salt) {
   var enc = new TextEncoder();
   var keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
-  var bits = await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', salt: enc.encode(salt), iterations: 10000, hash: 'SHA-256' },
-    keyMaterial,
-    256
-  );
+  var bits = await crypto.subtle.deriveBits({ name:'PBKDF2', salt: enc.encode(salt), iterations: 10000, hash:'SHA-256' }, keyMaterial, 256);
   var arr = new Uint8Array(bits);
   var out = '';
-  for (var i = 0; i < arr.length; i++) {
-    out += arr[i].toString(16).padStart(2, '0');
-  }
+  for (var i = 0; i < arr.length; i++) out += arr[i].toString(16).padStart(2, '0');
   return out;
 }
-
 function randomHex(n) {
   var buf = new Uint8Array(n);
   crypto.getRandomValues(buf);
   var out = '';
-  for (var i = 0; i < buf.length; i++) {
-    out += buf[i].toString(16).padStart(2, '0');
-  }
+  for (var i = 0; i < buf.length; i++) out += buf[i].toString(16).padStart(2, '0');
   return out;
 }
-
 function parseCookies(header) {
   var out = {};
   if (!header) return out;
   var parts = header.split(';');
   for (var i = 0; i < parts.length; i++) {
-    var pair = parts[i];
-    var idx = pair.indexOf('=');
+    var idx = parts[i].indexOf('=');
     if (idx < 0) continue;
-    var k = pair.slice(0, idx).trim();
-    var v = pair.slice(idx + 1).trim();
-    out[k] = decodeURIComponent(v);
+    out[parts[i].slice(0, idx).trim()] = decodeURIComponent(parts[i].slice(idx + 1).trim());
   }
   return out;
 }
-
-function sessionCookie(token, maxAgeSec) {
-  return 'session=' + token + '; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=' + maxAgeSec;
-}
-
+function sessionCookie(token, maxAgeSec) { return 'session=' + token + '; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=' + maxAgeSec; }
 async function getSession(request, env) {
   var cookies = parseCookies(request.headers.get('Cookie'));
   var token = cookies.session;
   if (!token) return null;
-  var now = Date.now();
-  var row = await env.DB.prepare(
-    'SELECT s.token, s.user_id, s.expires_at, u.email, u.plan, u.searches_today, u.last_search_date FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ? AND s.expires_at > ?'
-  ).bind(token, now).first();
+  var row = await env.DB.prepare('SELECT s.token, s.user_id, s.expires_at, u.email, u.plan, u.searches_today, u.last_search_date FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ? AND s.expires_at > ?').bind(token, Date.now()).first();
   if (!row) return null;
   return { token: token, user: row };
 }
-
-function validEmail(e) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
-}
-
-function resultLimitFor(plan) {
-  return plan === 'pro' ? PRO_RESULT_LIMIT : FREE_RESULT_LIMIT;
-}
+function validEmail(e) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e); }
+function resultLimitFor(plan) { return plan === 'pro' ? PRO_RESULT_LIMIT : FREE_RESULT_LIMIT; }
 
 async function handleRegister(request, env) {
   if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
   if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405);
-
   var body;
-  try { body = await request.json(); }
-  catch (e) { return json({ error: 'некорректный JSON' }, 400); }
-
+  try { body = await request.json(); } catch (e) { return json({ error: 'некорректный JSON' }, 400); }
   var email = String(body.email || '').trim().toLowerCase();
   var password = String(body.password || '');
-
   if (!validEmail(email)) return json({ error: 'некорректный email' }, 400);
   if (password.length < 6) return json({ error: 'пароль минимум 6 символов' }, 400);
-
   var exists = await env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(email).first();
   if (exists) return json({ error: 'email уже занят' }, 409);
-
   var salt = randomHex(16);
   var hash = await hashPassword(password, salt);
   var now = Date.now();
-
-  var res = await env.DB.prepare(
-    'INSERT INTO users (email, password_hash, salt, created_at, plan) VALUES (?, ?, ?, ?, ?)'
-  ).bind(email, hash, salt, now, 'free').run();
-
+  var res = await env.DB.prepare('INSERT INTO users (email, password_hash, salt, created_at, plan) VALUES (?, ?, ?, ?, ?)').bind(email, hash, salt, now, 'free').run();
   var userId = res.meta.last_row_id;
   var token = randomHex(32);
   var expires = now + SESSION_DAYS * 24 * 60 * 60 * 1000;
-
-  await env.DB.prepare(
-    'INSERT INTO sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)'
-  ).bind(token, userId, now, expires).run();
-
-  return json({
-    ok: true,
-    user: { id: userId, email: email, plan: 'free', searches_today: 0 },
-    limit: FREE_LIMIT,
-    result_limit: FREE_RESULT_LIMIT
-  }, 200, { 'Set-Cookie': sessionCookie(token, SESSION_DAYS * 24 * 60 * 60) });
+  await env.DB.prepare('INSERT INTO sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)').bind(token, userId, now, expires).run();
+  return json({ ok: true, user: { id: userId, email: email, plan: 'free', searches_today: 0 }, limit: FREE_LIMIT, result_limit: FREE_RESULT_LIMIT }, 200, { 'Set-Cookie': sessionCookie(token, SESSION_DAYS * 24 * 60 * 60) });
 }
-
 async function handleLogin(request, env) {
   if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
   if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405);
-
   var body;
-  try { body = await request.json(); }
-  catch (e) { return json({ error: 'некорректный JSON' }, 400); }
-
+  try { body = await request.json(); } catch (e) { return json({ error: 'некорректный JSON' }, 400); }
   var email = String(body.email || '').trim().toLowerCase();
   var password = String(body.password || '');
-
-  var user = await env.DB.prepare(
-    'SELECT id, email, password_hash, salt, plan, searches_today, last_search_date FROM users WHERE email = ?'
-  ).bind(email).first();
+  var user = await env.DB.prepare('SELECT id, email, password_hash, salt, plan, searches_today, last_search_date FROM users WHERE email = ?').bind(email).first();
   if (!user) return json({ error: 'неверный email или пароль' }, 401);
-
   var hash = await hashPassword(password, user.salt);
   if (hash !== user.password_hash) return json({ error: 'неверный email или пароль' }, 401);
-
   var now = Date.now();
   var token = randomHex(32);
   var expires = now + SESSION_DAYS * 24 * 60 * 60 * 1000;
-
-  await env.DB.prepare(
-    'INSERT INTO sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)'
-  ).bind(token, user.id, now, expires).run();
-
+  await env.DB.prepare('INSERT INTO sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)').bind(token, user.id, now, expires).run();
   var todayStr = today();
   var usedToday = user.last_search_date === todayStr ? (user.searches_today || 0) : 0;
-
-  return json({
-    ok: true,
-    user: { id: user.id, email: user.email, plan: user.plan, searches_today: usedToday },
-    limit: FREE_LIMIT,
-    result_limit: resultLimitFor(user.plan)
-  }, 200, { 'Set-Cookie': sessionCookie(token, SESSION_DAYS * 24 * 60 * 60) });
+  return json({ ok: true, user: { id: user.id, email: user.email, plan: user.plan, searches_today: usedToday }, limit: FREE_LIMIT, result_limit: resultLimitFor(user.plan) }, 200, { 'Set-Cookie': sessionCookie(token, SESSION_DAYS * 24 * 60 * 60) });
 }
-
 async function handleLogout(request, env) {
   if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
   var session = await getSession(request, env);
-  if (session) {
-    await env.DB.prepare('DELETE FROM sessions WHERE token = ?').bind(session.token).run();
-  }
+  if (session) await env.DB.prepare('DELETE FROM sessions WHERE token = ?').bind(session.token).run();
   return json({ ok: true }, 200, { 'Set-Cookie': 'session=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0' });
 }
-
 async function handleMe(request, env) {
   if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
   var session = await getSession(request, env);
@@ -326,331 +235,174 @@ async function handleMe(request, env) {
   var u = session.user;
   var todayStr = today();
   var usedToday = u.last_search_date === todayStr ? (u.searches_today || 0) : 0;
-  return json({
-    user: { id: u.user_id, email: u.email, plan: u.plan, searches_today: usedToday },
-    limit: FREE_LIMIT,
-    result_limit: resultLimitFor(u.plan)
-  });
+  return json({ user: { id: u.user_id, email: u.email, plan: u.plan, searches_today: usedToday }, limit: FREE_LIMIT, result_limit: resultLimitFor(u.plan) });
 }
-
-function normalizeCity(s) {
-  return s.toLowerCase().trim().replace(/ё/g, 'е').replace(/\s+/g, ' ');
-}
+function normalizeCity(s) { return s.toLowerCase().trim().replace(/ё/g, 'е').replace(/\s+/g, ' '); }
 
 async function handleLocate(request, env) {
   if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
-
   var url = new URL(request.url);
   var city = (url.searchParams.get('city') || '').trim();
   var niche = (url.searchParams.get('niche') || '').trim();
-
   if (!city || !niche) return json({ error: 'нужны city и niche' }, 400);
-
   var session = await getSession(request, env);
   if (!session) return json({ error: 'нужен вход', code: 'AUTH_REQUIRED' }, 401);
-
   var u = session.user;
   var todayStr = today();
   var usedToday = u.last_search_date === todayStr ? (u.searches_today || 0) : 0;
-
-  if (u.plan === 'free' && usedToday >= FREE_LIMIT) {
-    return json({
-      error: 'лимит бесплатных поисков исчерпан',
-      code: 'LIMIT_REACHED',
-      limit: FREE_LIMIT,
-      used: usedToday
-    }, 429);
-  }
-
+  if (u.plan === 'free' && usedToday >= FREE_LIMIT) return json({ error: 'лимит бесплатных поисков исчерпан', code: 'LIMIT_REACHED', limit: FREE_LIMIT, used: usedToday }, 429);
   var key = normalizeCity(city);
   var cityInfo = null;
-
-  if (CITIES[key]) {
-    var c = CITIES[key];
-    cityInfo = { lat: c[0], lon: c[1], r: c[2], c: c[3], n: c[4] };
-  } else {
+  if (CITIES[key]) { var c = CITIES[key]; cityInfo = { lat: c[0], lon: c[1], r: c[2], c: c[3], n: c[4] }; }
+  else {
     try {
-      var pr = await fetch('https://photon.komoot.io/api/?q=' + encodeURIComponent(city) + '&limit=1&lang=ru', {
-        headers: { 'User-Agent': 'LeadHunter/1.0' }
-      });
+      var pr = await fetch('https://photon.komoot.io/api/?q=' + encodeURIComponent(city) + '&limit=1&lang=ru', { headers: { 'User-Agent': 'LeadHunter/1.0' } });
       if (pr.ok) {
         var data = await pr.json();
         if (data.features && data.features.length) {
           var f = data.features[0];
-          var lon = f.geometry.coordinates[0];
-          var lat = f.geometry.coordinates[1];
+          var lon = f.geometry.coordinates[0], lat = f.geometry.coordinates[1];
           var p = f.properties || {};
           var nameParts = [];
           if (p.name) nameParts.push(p.name);
           if (p.state) nameParts.push(p.state);
-          cityInfo = {
-            lat: lat, lon: lon, r: 5000,
-            c: (p.countrycode || 'XX').toUpperCase(),
-            n: nameParts.join(', ')
-          };
+          cityInfo = { lat: lat, lon: lon, r: 5000, c: (p.countrycode || 'XX').toUpperCase(), n: nameParts.join(', ') };
         }
       }
     } catch (e) {}
   }
-
   if (!cityInfo) return json({ error: 'город не найден' }, 404);
-
   var tags = NICHES[niche.toLowerCase().trim()];
   if (!tags) return json({ error: 'ниша не поддерживается' }, 404);
-
   var r = Math.min(cityInfo.r, 5000);
   var dLat = r / 111000;
   var dLon = r / (111000 * Math.cos(cityInfo.lat * Math.PI / 180));
-  var bbox = [
-    (cityInfo.lat - dLat).toFixed(5),
-    (cityInfo.lon - dLon).toFixed(5),
-    (cityInfo.lat + dLat).toFixed(5),
-    (cityInfo.lon + dLon).toFixed(5)
-  ];
+  var bbox = [(cityInfo.lat - dLat).toFixed(5), (cityInfo.lon - dLon).toFixed(5), (cityInfo.lat + dLat).toFixed(5), (cityInfo.lon + dLon).toFixed(5)];
   var bboxStr = bbox.join(',');
-
   var parts = '';
   for (var i = 0; i < tags.length; i++) {
     parts += 'node["' + tags[i][0] + '"="' + tags[i][1] + '"](' + bboxStr + ');';
     parts += 'way["' + tags[i][0] + '"="' + tags[i][1] + '"](' + bboxStr + ');';
   }
   var query = '[out:json][timeout:25];(' + parts + ');out center 150;';
-
   var newCount = usedToday + 1;
-  await env.DB.prepare(
-    'UPDATE users SET searches_today = ?, last_search_date = ? WHERE id = ?'
-  ).bind(newCount, todayStr, u.user_id).run();
-
+  await env.DB.prepare('UPDATE users SET searches_today = ?, last_search_date = ? WHERE id = ?').bind(newCount, todayStr, u.user_id).run();
   var historyId = null;
   try {
-    var histRes = await env.DB.prepare(
-      'INSERT INTO search_history (user_id, city, niche, created_at) VALUES (?, ?, ?, ?)'
-    ).bind(u.user_id, cityInfo.n, niche, Date.now()).run();
+    var histRes = await env.DB.prepare('INSERT INTO search_history (user_id, city, niche, created_at) VALUES (?, ?, ?, ?)').bind(u.user_id, cityInfo.n, niche, Date.now()).run();
     historyId = histRes.meta.last_row_id;
   } catch (e) { console.error('history insert failed', e.message); }
-
-  return json({
-    city: cityInfo.n,
-    country: COUNTRIES[cityInfo.c] || cityInfo.c,
-    countryCode: cityInfo.c,
-    niche: niche,
-    bbox: bbox,
-    query: query,
-    used: newCount,
-    limit: FREE_LIMIT,
-    result_limit: resultLimitFor(u.plan),
-    plan: u.plan,
-    history_id: historyId,
-    updated: new Date().toISOString()
-  });
+  return json({ city: cityInfo.n, country: COUNTRIES[cityInfo.c] || cityInfo.c, countryCode: cityInfo.c, niche: niche, bbox: bbox, query: query, used: newCount, limit: FREE_LIMIT, result_limit: resultLimitFor(u.plan), plan: u.plan, history_id: historyId, updated: new Date().toISOString() });
 }
 
 async function handleHistory(request, env) {
   if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
-
   var session = await getSession(request, env);
   if (!session) return json({ error: 'нужен вход', code: 'AUTH_REQUIRED' }, 401);
-
   var u = session.user;
-
-  if (u.plan !== 'pro') {
-    return json({
-      error: 'История доступна только в PRO',
-      code: 'PRO_REQUIRED',
-      items: []
-    }, 403);
-  }
-
+  if (u.plan !== 'pro') return json({ error: 'История доступна только в PRO', code: 'PRO_REQUIRED', items: [] }, 403);
   var url = new URL(request.url);
   var limit = Math.min(parseInt(url.searchParams.get('limit') || '30', 10), 100);
-
-  var rows = await env.DB.prepare(
-    'SELECT id, city, niche, count, with_phone, created_at FROM search_history WHERE user_id = ? ORDER BY created_at DESC LIMIT ?'
-  ).bind(u.user_id, limit).all();
-
-  return json({
-    ok: true,
-    items: rows.results || []
-  }, 200, { 'Cache-Control': 'no-store' });
+  var rows = await env.DB.prepare('SELECT id, city, niche, count, with_phone, created_at FROM search_history WHERE user_id = ? ORDER BY created_at DESC LIMIT ?').bind(u.user_id, limit).all();
+  return json({ ok: true, items: rows.results || [] }, 200, { 'Cache-Control': 'no-store' });
 }
-
 async function handleHistoryUpdate(request, env) {
   if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
   if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405);
-
   var session = await getSession(request, env);
   if (!session) return json({ error: 'нужен вход' }, 401);
-
   var body;
-  try { body = await request.json(); }
-  catch (e) { return json({ error: 'некорректный JSON' }, 400); }
-
+  try { body = await request.json(); } catch (e) { return json({ error: 'некорректный JSON' }, 400); }
   var id = parseInt(body.id || 0, 10);
   var count = parseInt(body.count || 0, 10);
   var withPhone = parseInt(body.with_phone || 0, 10);
-
   if (!id) return json({ error: 'нужен id' }, 400);
-
-  await env.DB.prepare(
-    'UPDATE search_history SET count = ?, with_phone = ? WHERE id = ? AND user_id = ?'
-  ).bind(count, withPhone, id, session.user.user_id).run();
-
+  await env.DB.prepare('UPDATE search_history SET count = ?, with_phone = ? WHERE id = ? AND user_id = ?').bind(count, withPhone, id, session.user.user_id).run();
   return json({ ok: true });
 }
+
 async function handleFavorites(request, env) {
   if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
-
   var session = await getSession(request, env);
   if (!session) return json({ error: 'нужен вход', code: 'AUTH_REQUIRED' }, 401);
-
   var u = session.user;
   if (u.plan !== 'pro') return json({ error: 'Избранное доступно только в PRO', code: 'PRO_REQUIRED', items: [] }, 403);
-
-  var rows = await env.DB.prepare(
-    'SELECT id, name, phone, email, addr, type, opening, lat, lon, source_city, source_niche, created_at FROM favorites WHERE user_id = ? ORDER BY created_at DESC LIMIT 200'
-  ).bind(u.user_id).all();
-
+  var rows = await env.DB.prepare('SELECT id, name, phone, email, addr, type, opening, lat, lon, source_city, source_niche, created_at FROM favorites WHERE user_id = ? ORDER BY created_at DESC LIMIT 200').bind(u.user_id).all();
   return json({ ok: true, items: rows.results || [] }, 200, { 'Cache-Control': 'no-store' });
 }
-
 async function handleFavAdd(request, env) {
   if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
   if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405);
-
   var session = await getSession(request, env);
   if (!session) return json({ error: 'нужен вход', code: 'AUTH_REQUIRED' }, 401);
-
   var u = session.user;
   if (u.plan !== 'pro') return json({ error: 'Избранное доступно только в PRO', code: 'PRO_REQUIRED' }, 403);
-
   var body;
-  try { body = await request.json(); }
-  catch (e) { return json({ error: 'некорректный JSON' }, 400); }
-
+  try { body = await request.json(); } catch (e) { return json({ error: 'некорректный JSON' }, 400); }
   var name = String(body.name || '').trim();
   if (!name) return json({ error: 'нужно название' }, 400);
-
-  var phone = String(body.phone || '').trim();
-  var email = String(body.email || '').trim();
-  var addr = String(body.addr || '').trim();
-  var type = String(body.type || '').trim();
-  var opening = String(body.opening || '').trim();
-  var lat = typeof body.lat === 'number' ? body.lat : null;
-  var lon = typeof body.lon === 'number' ? body.lon : null;
-  var sourceCity = String(body.source_city || '').trim();
-  var sourceNiche = String(body.source_niche || '').trim();
-
   try {
-    var res = await env.DB.prepare(
-      'INSERT OR IGNORE INTO favorites (user_id, name, phone, email, addr, type, opening, lat, lon, source_city, source_niche, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-    ).bind(u.user_id, name, phone, email, addr, type, opening, lat, lon, sourceCity, sourceNiche, Date.now()).run();
-
+    var res = await env.DB.prepare('INSERT OR IGNORE INTO favorites (user_id, name, phone, email, addr, type, opening, lat, lon, source_city, source_niche, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').bind(u.user_id, name, String(body.phone||'').trim(), String(body.email||'').trim(), String(body.addr||'').trim(), String(body.type||'').trim(), String(body.opening||'').trim(), typeof body.lat === 'number' ? body.lat : null, typeof body.lon === 'number' ? body.lon : null, String(body.source_city||'').trim(), String(body.source_niche||'').trim(), Date.now()).run();
     return json({ ok: true, id: res.meta.last_row_id, added: res.meta.changes > 0 });
-  } catch (e) {
-    return json({ error: 'не удалось сохранить' }, 500);
-  }
+  } catch (e) { return json({ error: 'не удалось сохранить' }, 500); }
 }
-
 async function handleFavRemove(request, env) {
   if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
   if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405);
-
   var session = await getSession(request, env);
   if (!session) return json({ error: 'нужен вход', code: 'AUTH_REQUIRED' }, 401);
-
   var body;
-  try { body = await request.json(); }
-  catch (e) { return json({ error: 'некорректный JSON' }, 400); }
-
+  try { body = await request.json(); } catch (e) { return json({ error: 'некорректный JSON' }, 400); }
   var id = parseInt(body.id || 0, 10);
   var name = String(body.name || '').trim();
   var addr = String(body.addr || '').trim();
-
   if (!id && !name) return json({ error: 'нужен id или name' }, 400);
-
-  if (id) {
-    await env.DB.prepare('DELETE FROM favorites WHERE id = ? AND user_id = ?').bind(id, session.user.user_id).run();
-  } else {
-    await env.DB.prepare('DELETE FROM favorites WHERE user_id = ? AND name = ? AND addr = ?').bind(session.user.user_id, name, addr).run();
-  }
-
+  if (id) await env.DB.prepare('DELETE FROM favorites WHERE id = ? AND user_id = ?').bind(id, session.user.user_id).run();
+  else await env.DB.prepare('DELETE FROM favorites WHERE user_id = ? AND name = ? AND addr = ?').bind(session.user.user_id, name, addr).run();
   return json({ ok: true });
 }
+
 async function handleChangePassword(request, env) {
   if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
   if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405);
-
   var session = await getSession(request, env);
   if (!session) return json({ error: 'нужен вход', code: 'AUTH_REQUIRED' }, 401);
-
   var body;
-  try { body = await request.json(); }
-  catch (e) { return json({ error: 'некорректный JSON' }, 400); }
-
+  try { body = await request.json(); } catch (e) { return json({ error: 'некорректный JSON' }, 400); }
   var currentPassword = String(body.current_password || '');
   var newPassword = String(body.new_password || '');
-
   if (!currentPassword || !newPassword) return json({ error: 'заполни все поля' }, 400);
   if (newPassword.length < 6) return json({ error: 'новый пароль минимум 6 символов' }, 400);
-
-  var user = await env.DB.prepare(
-    'SELECT id, password_hash, salt FROM users WHERE id = ?'
-  ).bind(session.user.user_id).first();
+  var user = await env.DB.prepare('SELECT id, password_hash, salt FROM users WHERE id = ?').bind(session.user.user_id).first();
   if (!user) return json({ error: 'пользователь не найден' }, 404);
-
   var currentHash = await hashPassword(currentPassword, user.salt);
   if (currentHash !== user.password_hash) return json({ error: 'неверный текущий пароль' }, 401);
-
   var newSalt = randomHex(16);
   var newHash = await hashPassword(newPassword, newSalt);
-
-  await env.DB.prepare(
-    'UPDATE users SET password_hash = ?, salt = ? WHERE id = ?'
-  ).bind(newHash, newSalt, user.id).run();
-
-  // Удаляем все сессии кроме текущей - на всякий случай
-  await env.DB.prepare(
-    'DELETE FROM sessions WHERE user_id = ? AND token != ?'
-  ).bind(user.id, session.token).run();
-
+  await env.DB.prepare('UPDATE users SET password_hash = ?, salt = ? WHERE id = ?').bind(newHash, newSalt, user.id).run();
+  await env.DB.prepare('DELETE FROM sessions WHERE user_id = ? AND token != ?').bind(user.id, session.token).run();
   return json({ ok: true, message: 'Пароль обновлён' });
 }
-
 async function handleDeleteAccount(request, env) {
   if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
   if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405);
-
   var session = await getSession(request, env);
   if (!session) return json({ error: 'нужен вход', code: 'AUTH_REQUIRED' }, 401);
-
   var body;
-  try { body = await request.json(); }
-  catch (e) { return json({ error: 'некорректный JSON' }, 400); }
-
+  try { body = await request.json(); } catch (e) { return json({ error: 'некорректный JSON' }, 400); }
   var password = String(body.password || '');
   var confirm = String(body.confirm || '');
-
   if (confirm !== 'УДАЛИТЬ') return json({ error: 'введи УДАЛИТЬ заглавными' }, 400);
   if (!password) return json({ error: 'нужен пароль' }, 400);
-
-  var user = await env.DB.prepare(
-    'SELECT id, password_hash, salt FROM users WHERE id = ?'
-  ).bind(session.user.user_id).first();
+  var user = await env.DB.prepare('SELECT id, password_hash, salt FROM users WHERE id = ?').bind(session.user.user_id).first();
   if (!user) return json({ error: 'пользователь не найден' }, 404);
-
   var hash = await hashPassword(password, user.salt);
   if (hash !== user.password_hash) return json({ error: 'неверный пароль' }, 401);
-
   var uid = user.id;
-
-  // Удаляем всё связанное
   await env.DB.prepare('DELETE FROM favorites WHERE user_id = ?').bind(uid).run();
   await env.DB.prepare('DELETE FROM search_history WHERE user_id = ?').bind(uid).run();
   await env.DB.prepare('DELETE FROM subscriptions WHERE user_id = ?').bind(uid).run();
   await env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(uid).run();
   await env.DB.prepare('DELETE FROM users WHERE id = ?').bind(uid).run();
-
-  return json({ ok: true, message: 'Аккаунт удалён' }, 200, {
-    'Set-Cookie': 'session=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0'
-  });
+  return json({ ok: true, message: 'Аккаунт удалён' }, 200, { 'Set-Cookie': 'session=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0' });
 }
