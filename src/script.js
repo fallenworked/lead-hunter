@@ -300,6 +300,32 @@
 
   var aiHistory = [];
   var aiSending = false;
+  var AI_STORAGE_KEY = 'lh_ai_history_v1';
+
+  function aiSaveHistory(){
+    try {
+      var trimmed = aiHistory.slice(-30);
+      localStorage.setItem(AI_STORAGE_KEY, JSON.stringify(trimmed));
+    } catch(e){}
+  }
+
+  function aiLoadHistory(){
+    try {
+      var raw = localStorage.getItem(AI_STORAGE_KEY);
+      if(!raw) return [];
+      var parsed = JSON.parse(raw);
+      if(!Array.isArray(parsed)) return [];
+      return parsed.slice(-30);
+    } catch(e){ return []; }
+  }
+
+  function aiClearHistory(){
+    if(!aiHistory.length) return;
+    if(!confirm('Очистить историю чата?')) return;
+    aiHistory = [];
+    try { localStorage.removeItem(AI_STORAGE_KEY); } catch(e){}
+    renderAIMessages();
+  }
 
   function openAI(){
     var m = $('aiModal');
@@ -312,6 +338,8 @@
       }, 250);
       return;
     }
+    if(!aiHistory.length) aiHistory = aiLoadHistory();
+    renderAIMessages();
     m.classList.add('show');
     loadAILimit();
     setTimeout(function(){ var i = $('aiInput'); if(i) i.focus(); }, 300);
@@ -337,7 +365,7 @@
     if(!chat) return;
     var html = '';
     if(!aiHistory.length){
-      html = '<div class="ai-welcome"><div class="ai-welcome-icon">✨</div><h3>Привет! Я помогу продать услугу</h3><p>Спроси что угодно или выбери готовый шаблон ниже</p></div>';
+      html = '<div class="ai-welcome"><div class="ai-welcome-icon">✨</div><h3>Привет! Я помогу продать услугу</h3><p>Спроси что угодно или выбери готовый шаблон ниже</p><div class="ai-quick" id="aiQuick"><button type="button" class="ai-quick-btn" data-prompt="Напиши скрипт холодного звонка для стоматологии в Москве, у которой нет сайта. Мой бюджет за услугу 50000 рублей.">📞 Скрипт звонка</button><button type="button" class="ai-quick-btn" data-prompt="Напиши 5 причин, почему стоматологии нужен сайт, чтобы убедить владельца.">💡 5 причин</button><button type="button" class="ai-quick-btn" data-prompt="Напиши коммерческое предложение на создание сайта для стоматологии. Цена 50000 рублей, срок 2 недели.">📄 КП</button><button type="button" class="ai-quick-btn" data-prompt="Клиент говорит: у нас уже есть группа ВКонтакте, сайт не нужен. Что ответить?">🛡 Ответ на возражение</button><button type="button" class="ai-quick-btn" data-prompt="Напиши короткое сообщение в WhatsApp для владельца стоматологии без сайта.">💬 Сообщение в WA</button></div></div>';
     } else {
       for(var i = 0; i < aiHistory.length; i++){
         var m = aiHistory[i];
@@ -349,14 +377,6 @@
       }
     }
     chat.innerHTML = html;
-    if(aiHistory.length && $('aiQuick')){
-      var q = document.createElement('div');
-      q.className = 'ai-quick';
-      q.id = 'aiQuick';
-      q.innerHTML = '<button type="button" class="ai-quick-btn" data-prompt="Сделай этот скрипт короче">Короче</button><button type="button" class="ai-quick-btn" data-prompt="Сделай этот скрипт более дружелюбным">Дружелюбнее</button><button type="button" class="ai-quick-btn" data-prompt="Перепиши это для WhatsApp">Для WhatsApp</button>';
-      var lastMsg = chat.lastElementChild;
-      if(lastMsg && lastMsg.classList.contains('bot')) chat.appendChild(q);
-    }
     chat.scrollTop = chat.scrollHeight;
   }
 
@@ -401,6 +421,7 @@
     if(sendBtn) sendBtn.disabled = true;
 
     aiHistory.push({ role: 'user', content: text });
+    aiSaveHistory();
     renderAIMessages();
     showTyping();
 
@@ -422,12 +443,12 @@
           } else {
             aiHistory.push({ role: 'assistant', content: 'Ошибка: ' + (res.data.error || 'не удалось получить ответ') });
           }
-          renderAIMessages();
         } else {
           aiHistory.push({ role: 'assistant', content: res.data.reply });
-          renderAIMessages();
           loadAILimit();
         }
+        aiSaveHistory();
+        renderAIMessages();
         aiSending = false;
         if(sendBtn) sendBtn.disabled = false;
         if(input) input.focus();
@@ -435,6 +456,7 @@
       .catch(function(e){
         hideTyping();
         aiHistory.push({ role: 'assistant', content: 'Ошибка сети. Попробуй ещё раз.' });
+        aiSaveHistory();
         renderAIMessages();
         aiSending = false;
         if(sendBtn) sendBtn.disabled = false;
@@ -442,10 +464,11 @@
   }
 
   function bindAI(){
-    var bg = $('aiBg'), close = $('aiClose');
+    var bg = $('aiBg'), close = $('aiClose'), clearBtn = $('aiClear');
     var sendBtn = $('aiSend'), input = $('aiInput');
     if(bg) bg.addEventListener('click', closeAI);
     if(close) close.addEventListener('click', closeAI);
+    if(clearBtn) clearBtn.addEventListener('click', aiClearHistory);
     if(sendBtn) sendBtn.addEventListener('click', function(){ sendAI(input ? input.value : ''); });
     if(input){
       input.addEventListener('keydown', function(e){
@@ -506,6 +529,7 @@
     fetch('/api/auth/logout', { method: 'POST' }).then(function(){
       state.user = null; state.leads = []; state.lastTotal = 0;
       aiHistory = [];
+      try { localStorage.removeItem(AI_STORAGE_KEY); } catch(e){}
       updateNavUI();
       $('grid').innerHTML = '';
       var infoEl = $('info');
