@@ -171,10 +171,27 @@ footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);displ
 .plans-foot{text-align:center;font-size:12.5px;color:var(--muted);padding-top:16px;border-top:1px solid var(--border)}
 .plans-foot b{color:var(--silver)}
 @media(max-width:720px){
-  .plans-body{padding:26px 18px 22px;border-radius:16px}
-  .plans-grid{grid-template-columns:1fr;gap:14px}
-  .plan-card{padding:20px 18px}
+  .plans-body{padding:22px 14px 18px;border-radius:16px}
+  .plans-grid{grid-template-columns:1fr 1fr;gap:10px}
+  .plan-card{padding:14px 12px}
+  .plan-name h3{font-size:16px}
+  .plan-name .tag{font-size:9px;padding:2px 6px}
+  .plan-desc{font-size:11.5px;min-height:30px;margin-bottom:12px}
+  .plan-price{min-height:40px;margin-bottom:4px;gap:4px}
+  .plan-price .amount{font-size:26px}
+  .plan-card:not(.pro) .plan-price .amount{font-size:22px}
+  .plan-price .ruble{font-size:14px}
+  .plan-price .period{font-size:11px}
+  .plan-price .old{font-size:11px}
+  .plan-save{font-size:10.5px;margin-bottom:14px}
+  .plan-features{gap:7px;margin-bottom:14px}
+  .plan-features li{font-size:11.5px;gap:6px}
+  .plan-features li .check,
+  .plan-features li .cross{width:13px}
+  .plan-cta{padding:11px;font-size:12.5px}
   .plans-toggle-inner{width:100%;max-width:280px}
-  .plans-toggle-btn{flex:1}
+  .plans-toggle-btn{flex:1;font-size:12px;padding:8px 14px}
+  .plans-head h2{font-size:22px}
+  .plans-head p{font-size:12.5px}
 }
 @media(max-width:640px){.app{padding:14px 14px 40px}.grid{grid-template-columns:1fr}.btn{width:100%}.field{min-width:0}.nav-brand{font-size:13px}.nav-brand img{width:30px;height:30px}.drawer-body{width:280px}}
