@@ -425,3 +425,66 @@ footer{margin-top:100px;padding-top:32px;border-top:1px solid var(--border);disp
   footer{flex-direction:column;align-items:center;text-align:center;margin-top:60px}
   .footer-links{justify-content:center}
 }
+/* ═══ МИКРОАНИМАЦИИ ═══ */
+.btn{transition:opacity .2s,transform .12s ease,color .15s,border-color .15s}
+.btn:active:not(:disabled){transform:scale(.97)}
+
+.card{transition:border-color .2s,transform .3s cubic-bezier(.2,.7,.3,1),box-shadow .3s}
+.card:hover{transform:translateY(-3px);border-color:var(--border-2);box-shadow:0 12px 40px rgba(0,0,0,.5)}
+
+.preset{transition:border-color .15s,color .15s,transform .15s}
+.preset:active{transform:scale(.95)}
+
+.field input{transition:border-color .2s,box-shadow .25s}
+.field input:focus{box-shadow:0 0 0 3px rgba(255,255,255,.06)}
+
+.drawer-item{transition:background .15s,color .15s,border-color .15s,padding-left .2s}
+
+.contact-actions a{transition:color .15s,border-color .15s,transform .12s,background .15s}
+.contact-actions a:active{transform:scale(.95)}
+
+.star{transition:color .2s,border-color .2s,background .2s,transform .15s}
+.star:active{transform:scale(.9)}
+
+.stat-value{transition:color .3s}
+
+.btn-login{transition:opacity .2s,transform .12s}
+.btn-login:active{transform:scale(.97)}
+
+.ai-send{transition:opacity .2s,transform .15s}
+.ai-send:active:not(:disabled){transform:scale(.92)}
+
+.ai-quick-btn{transition:border-color .15s,color .15s,transform .12s,background .15s}
+.ai-quick-btn:active{transform:scale(.95)}
+
+/* ═══ LIVE БЕЙДЖ ═══ */
+.nav-live{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  font-size:9.5px;
+  font-weight:800;
+  letter-spacing:.16em;
+  color:var(--silver-2);
+  padding:5px 11px;
+  border:1px solid var(--border-2);
+  border-radius:100px;
+  margin-left:14px;
+  transition:border-color .25s,color .25s;
+}
+.nav-live::before{
+  content:"";
+  width:6px;height:6px;border-radius:50%;
+  background:var(--ok);
+  box-shadow:0 0 0 0 rgba(74,222,128,.5);
+  animation:livePulse 2s infinite;
+}
+.nav-live:hover{border-color:var(--silver-2);color:var(--silver)}
+@keyframes livePulse{
+  0%{box-shadow:0 0 0 0 rgba(74,222,128,.6)}
+  70%{box-shadow:0 0 0 7px rgba(74,222,128,0)}
+  100%{box-shadow:0 0 0 0 rgba(74,222,128,0)}
+}
+@media(max-width:640px){
+  .nav-live{display:none}
+}
