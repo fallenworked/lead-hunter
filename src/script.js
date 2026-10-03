@@ -151,12 +151,15 @@
         subText = 'Осталось поисков: <b>' + Math.max(0, state.limit - used) + '/' + state.limit + '</b>';
       } else subText = 'Подписка активна';
       auth.innerHTML = '<div class="drawer-user"><div class="drawer-avatar">' + esc(initial) + '</div><div><div class="drawer-email">' + esc(state.user.email) + '</div><div class="drawer-sub">' + subText + '</div></div></div>';
+      var aiLabel = state.user.plan === 'pro' ? '<span class="right">NEW</span>' : '<span class="right">PRO</span>';
       nav.innerHTML =
+        '<div class="drawer-section">Работа</div>' +
+        '<div class="drawer-item ai-item" data-action="ai"><span class="ai-dot"></span>AI Агент' + aiLabel + '</div>' +
+        '<div class="drawer-item" data-action="history">История поиска</div>' +
         '<div class="drawer-section">Аккаунт</div>' +
         '<div class="drawer-item" data-action="profile">Профиль<span class="right">→</span></div>' +
         '<div class="drawer-item" data-action="plans">Подписка<span class="right">199₽</span></div>' +
-        '<div class="drawer-item" data-action="history">История поиска</div>' +
-        '<div class="drawer-section">Настройки</div>' +
+        '<div class="drawer-section">Помощь</div>' +
         '<div class="drawer-item" data-action="settings">Настройки</div>' +
         '<div class="drawer-item" data-action="support">Поддержка</div>' +
         '<div class="drawer-item danger" data-action="logout">Выйти</div>';
@@ -295,6 +298,180 @@
     window.addEventListener('resize', updatePlansSlider);
   }
 
+  var aiHistory = [];
+  var aiSending = false;
+
+  function openAI(){
+    var m = $('aiModal');
+    if(!m) return;
+    if(!state.user){ closeDrawer(); setTimeout(function(){ openAuth('login'); }, 200); return; }
+    if(state.user.plan !== 'pro'){
+      closeDrawer();
+      setTimeout(function(){
+        alert('AI Агент доступен только в PRO.\n\nОформи подписку - 199₽/мес или 1199₽/год.\n\nПока напиши в поддержку - активируем вручную.');
+      }, 250);
+      return;
+    }
+    m.classList.add('show');
+    loadAILimit();
+    setTimeout(function(){ var i = $('aiInput'); if(i) i.focus(); }, 300);
+  }
+
+  function closeAI(){
+    var m = $('aiModal');
+    if(m) m.classList.remove('show');
+  }
+
+  function loadAILimit(){
+    fetch('/api/ai/limit').then(function(r){ return r.json(); }).then(function(d){
+      var c = $('aiCounter');
+      if(!c) return;
+      if(!d.user){ c.innerHTML = 'Войди чтобы использовать'; return; }
+      if(!d.pro){ c.innerHTML = 'Доступно только в <b>PRO</b>'; return; }
+      c.innerHTML = 'Осталось: <b>' + d.remaining + '/' + d.limit + '</b> сообщений';
+    }).catch(function(){});
+  }
+
+  function renderAIMessages(){
+    var chat = $('aiChat');
+    if(!chat) return;
+    var html = '';
+    if(!aiHistory.length){
+      html = '<div class="ai-welcome"><div class="ai-welcome-icon">✨</div><h3>Привет! Я помогу продать услугу</h3><p>Спроси что угодно или выбери готовый шаблон ниже</p></div>';
+    } else {
+      for(var i = 0; i < aiHistory.length; i++){
+        var m = aiHistory[i];
+        if(m.role === 'user'){
+          html += '<div class="ai-msg user">' + esc(m.content) + '</div>';
+        } else {
+          html += '<div class="ai-msg bot">' + formatAI(m.content) + '</div>';
+        }
+      }
+    }
+    chat.innerHTML = html;
+    if(aiHistory.length && $('aiQuick')){
+      var q = document.createElement('div');
+      q.className = 'ai-quick';
+      q.id = 'aiQuick';
+      q.innerHTML = '<button type="button" class="ai-quick-btn" data-prompt="Сделай этот скрипт короче">Короче</button><button type="button" class="ai-quick-btn" data-prompt="Сделай этот скрипт более дружелюбным">Дружелюбнее</button><button type="button" class="ai-quick-btn" data-prompt="Перепиши это для WhatsApp">Для WhatsApp</button>';
+      var lastMsg = chat.lastElementChild;
+      if(lastMsg && lastMsg.classList.contains('bot')) chat.appendChild(q);
+    }
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  function formatAI(text){
+    var s = esc(text);
+    s = s.split('\n').join('<br>');
+    s = s.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+    return s;
+  }
+
+  function showTyping(){
+    var chat = $('aiChat');
+    if(!chat) return;
+    var t = document.createElement('div');
+    t.className = 'ai-msg typing';
+    t.id = 'aiTyping';
+    t.innerHTML = '<div class="ai-typing-dots"><span></span><span></span><span></span></div>';
+    chat.appendChild(t);
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  function hideTyping(){
+    var t = $('aiTyping');
+    if(t) t.remove();
+  }
+
+  function sendAI(text){
+    if(aiSending) return;
+    if(!state.user){ closeAI(); openAuth('login'); return; }
+    if(state.user.plan !== 'pro'){
+      closeAI();
+      setTimeout(function(){ alert('AI доступен только в PRO'); }, 200);
+      return;
+    }
+    text = (text || '').trim();
+    if(!text) return;
+
+    aiSending = true;
+    var input = $('aiInput');
+    var sendBtn = $('aiSend');
+    if(input) input.value = '';
+    if(sendBtn) sendBtn.disabled = true;
+
+    aiHistory.push({ role: 'user', content: text });
+    renderAIMessages();
+    showTyping();
+
+    fetch('/api/ai/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: aiHistory })
+    }).then(function(r){ return r.json().then(function(d){ return { ok: r.ok, data: d }; }); })
+      .then(function(res){
+        hideTyping();
+        if(!res.ok){
+          if(res.data.code === 'AI_LIMIT_REACHED'){
+            aiHistory.push({ role: 'assistant', content: 'Дневной лимит исчерпан. Возвращайся завтра.' });
+          } else if(res.data.code === 'AUTH_REQUIRED'){
+            closeAI(); openAuth('login');
+          } else if(res.data.code === 'PRO_REQUIRED'){
+            closeAI();
+            setTimeout(function(){ alert('AI Агент доступен только в PRO.'); }, 200);
+          } else {
+            aiHistory.push({ role: 'assistant', content: 'Ошибка: ' + (res.data.error || 'не удалось получить ответ') });
+          }
+          renderAIMessages();
+        } else {
+          aiHistory.push({ role: 'assistant', content: res.data.reply });
+          renderAIMessages();
+          loadAILimit();
+        }
+        aiSending = false;
+        if(sendBtn) sendBtn.disabled = false;
+        if(input) input.focus();
+      })
+      .catch(function(e){
+        hideTyping();
+        aiHistory.push({ role: 'assistant', content: 'Ошибка сети. Попробуй ещё раз.' });
+        renderAIMessages();
+        aiSending = false;
+        if(sendBtn) sendBtn.disabled = false;
+      });
+  }
+
+  function bindAI(){
+    var bg = $('aiBg'), close = $('aiClose');
+    var sendBtn = $('aiSend'), input = $('aiInput');
+    if(bg) bg.addEventListener('click', closeAI);
+    if(close) close.addEventListener('click', closeAI);
+    if(sendBtn) sendBtn.addEventListener('click', function(){ sendAI(input ? input.value : ''); });
+    if(input){
+      input.addEventListener('keydown', function(e){
+        if(e.key === 'Enter' && !e.shiftKey){
+          e.preventDefault();
+          sendAI(input.value);
+        }
+      });
+      input.addEventListener('input', function(){
+        input.style.height = 'auto';
+        input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+      });
+    }
+    document.addEventListener('click', function(e){
+      var el = e.target;
+      while(el && el !== document.body){
+        if(el.classList && el.classList.contains('ai-quick-btn')){
+          var p = el.getAttribute('data-prompt');
+          if(p) sendAI(p);
+          return;
+        }
+        el = el.parentNode;
+      }
+    });
+  }
+
   function submitAuth(){
     var email = $('authEmail').value.trim();
     var password = $('authPassword').value;
@@ -328,6 +505,7 @@
   function logout(){
     fetch('/api/auth/logout', { method: 'POST' }).then(function(){
       state.user = null; state.leads = []; state.lastTotal = 0;
+      aiHistory = [];
       updateNavUI();
       $('grid').innerHTML = '';
       var infoEl = $('info');
@@ -465,6 +643,7 @@
     if(action === 'login'){ closeDrawer(); setTimeout(function(){ openAuth('login'); }, 250); return; }
     if(action === 'logout'){ logout(); return; }
     if(action === 'plans'){ openPlans(); return; }
+    if(action === 'ai'){ openAI(); return; }
     if(action === 'profile'){ closeDrawer(); setTimeout(function(){ alert('Профиль в разработке'); }, 250); return; }
     if(action === 'history'){ closeDrawer(); setTimeout(function(){ alert('История в разработке'); }, 250); return; }
     if(action === 'settings'){ closeDrawer(); setTimeout(function(){ alert('Настройки в разработке'); }, 250); return; }
@@ -510,12 +689,13 @@
     if(authForm) authForm.addEventListener('submit', submitAuth);
     if(authSwitch) authSwitch.addEventListener('click', function(){ openAuth(authMode === 'login' ? 'register' : 'login'); });
     document.addEventListener('keydown', function(e){
-      if(e.key === 'Escape'){ closeAuth(); closePlans(); closeDrawer(); }
+      if(e.key === 'Escape'){ closeAuth(); closePlans(); closeAI(); closeDrawer(); }
     });
   }
 
   bind();
   bindPlans();
+  bindAI();
   renderPresets();
   preload().then(refreshMe);
 })();
