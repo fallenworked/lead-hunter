@@ -304,18 +304,24 @@ export async function runDailySummary(env) {
   var mskHour = (now.getUTCHours() + 3) % 24;
 
   var users = await env.DB.prepare(
-    "SELECT id, email, default_city, default_niche, telegram_chat_id, daily_summary_hour FROM users WHERE plan = 'pro' AND daily_summary = 1 AND telegram_chat_id != ''"
+    "SELECT id, email, default_city, default_niche, telegram_chat_id, daily_summary_hour, daily_summary_sent_at FROM users WHERE plan = 'pro' AND daily_summary = 1 AND telegram_chat_id != ''"
   ).all();
 
   if (!users.results) return;
 
+  var TWENTY_HOURS = 20 * 60 * 60 * 1000;
+
   for (var i = 0; i < users.results.length; i++) {
     var u = users.results[i];
     var targetHour = u.daily_summary_hour || 20;
+
+    // Не тот час — пропускаем
     if (mskHour !== targetHour) continue;
 
+    // Уже отправляли за последние 20 часов — пропускаем (защита от cron */15)
+    if (u.daily_summary_sent_at && (Date.now() - u.daily_summary_sent_at) < TWENTY_HOURS) continue;
+
     try {
-      // Считаем статистику за сегодня
       var dayStart = new Date();
       dayStart.setHours(0, 0, 0, 0);
 
@@ -327,18 +333,38 @@ export async function runDailySummary(env) {
         "SELECT COUNT(*) as cnt FROM autosearch_results WHERE user_id = ? AND created_at > ?"
       ).bind(u.id, dayStart.getTime()).first();
 
-      var text =
-        '📊 <b>Сводка за день</b>\n\n' +
-        '🔍 Поисков: <b>' + (searches.cnt || 0) + '</b>\n' +
-        '🎯 Новых лидов: <b>' + (newLeads.cnt || 0) + '</b>\n';
+      var searchesCount = (searches && searches.cnt) || 0;
+      var leadsCount = (newLeads && newLeads.cnt) || 0;
 
-      if (u.default_city && u.default_niche) {
-        text += '\nОтслеживается: <b>' + u.default_niche + '</b> в <b>' + u.default_city + '</b>';
+      // Не шлём пустую сводку
+      if (searchesCount === 0 && leadsCount === 0) {
+        await env.DB.prepare('UPDATE users SET daily_summary_sent_at = ? WHERE id = ?')
+          .bind(Date.now(), u.id).run();
+        continue;
       }
 
-      await send(env, u.telegram_chat_id, text);
+      var text =
+        '📊 <b>Сводка за день</b>\n\n' +
+        '🔍 Поисков: <b>' + searchesCount + '</b>\n' +
+        '🎯 Новых лидов: <b>' + leadsCount + '</b>\n';
+
+      if (u.default_city && u.default_niche) {
+        text += '\nОтслеживается: <b>' + escHtml(u.default_niche) + '</b> в <b>' + escHtml(u.default_city) + '</b>';
+      }
+
+      await sendTelegram(botToken, u.telegram_chat_id, text);
+
+      await env.DB.prepare('UPDATE users SET daily_summary_sent_at = ? WHERE id = ?')
+        .bind(Date.now(), u.id).run();
     } catch (e) {
       console.error('summary error', u.email, e.message);
     }
   }
+}
+
+function escHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
