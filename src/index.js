@@ -309,7 +309,22 @@ async function handleLocate(request, env) {
   }
   var query = '[out:json][timeout:25];(' + parts + ');out center 150;';
   var newCount = usedToday + 1;
-  await env.DB.prepare('UPDATE users SET searches_today = ?, last_search_date = ? WHERE id = ?').bind(newCount, todayStr, u.user_id).run();
+        await env.DB.prepare(
+        'UPDATE users SET default_city = ?, default_niche = ?, telegram_chat_id = ?, notify_tg = ?, notify_email = ?, autosearch_enabled = ?, ai_style = ? WHERE id = ?'
+      ).bind(
+        String(body.default_city || '').slice(0, 100),
+        String(body.default_niche || '').slice(0, 100),
+        String(body.telegram_chat_id || '').slice(0, 50),
+        body.notify_tg ? 1 : 0,
+        body.notify_email ? 1 : 0,
+        body.autosearch_enabled ? 1 : 0,
+        (function(){
+          var s = String(body.ai_style || 'business');
+          return ['business','friendly','direct','selling'].indexOf(s) >= 0 ? s : 'business';
+        })(),
+        u.user_id
+      ).run();
+      
   var historyId = null;
   try {
     var histRes = await env.DB.prepare('INSERT INTO search_history (user_id, city, niche, created_at) VALUES (?, ?, ?, ?)').bind(u.user_id, cityInfo.n, niche, Date.now()).run();
@@ -439,7 +454,10 @@ async function handleSettings(request, env) {
     var row = await env.DB.prepare(
       'SELECT default_city, default_niche, telegram_chat_id, notify_tg, notify_email, autosearch_enabled FROM users WHERE id = ?'
     ).bind(u.user_id).first();
-    return json({
+    var row = await env.DB.prepare(
+      'SELECT default_city, default_niche, telegram_chat_id, notify_tg, notify_email, autosearch_enabled, ai_style FROM users WHERE id = ?'
+    ).bind(u.user_id).first();
+      return json({
       settings: {
         default_city: row.default_city || '',
         default_niche: row.default_niche || '',
