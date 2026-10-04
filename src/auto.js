@@ -262,11 +262,14 @@ export async function runAutosearch(env) {
             // Inline-кнопки для первого лида (самого горячего)
       var firstLead = newLeads[0];
       var firstPhone = (firstLead.phone || '').replace(/[^\d+]/g, '');
-      var inline = {
+            var inline = {
         inline_keyboard: [
           [
             { text: '📞 Позвонить', url: firstPhone ? 'tel:' + firstPhone : 'https://lead-hunt.su/' },
             { text: '📍 Карта', url: 'https://yandex.ru/maps/?text=' + encodeURIComponent(firstLead.name + ' ' + city.n) }
+          ],
+          [
+            { text: '🎯 AI-скрипт звонка', callback_data: 'ai_script:' + encodeURIComponent(firstLead.name) + ':' + encodeURIComponent(city.n) + ':' + encodeURIComponent(niche) }
           ],
           [
             { text: '⭐ Все в избранное', callback_data: 'save_all:' + (newLeads.length) },
