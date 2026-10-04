@@ -162,18 +162,20 @@ function extract(elem) {
   };
 }
 
-async function sendTelegram(botToken, chatId, text) {
+async function sendTelegram(botToken, chatId, text, replyMarkup) {
   if (!botToken || !chatId) return;
+  var body = {
+    chat_id: chatId,
+    text: text,
+    parse_mode: 'HTML',
+    disable_web_page_preview: true
+  };
+  if (replyMarkup) body.reply_markup = replyMarkup;
   try {
     await fetch('https://api.telegram.org/bot' + botToken + '/sendMessage', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text: text,
-        parse_mode: 'HTML',
-        disable_web_page_preview: true
-      })
+      body: JSON.stringify(body)
     });
   } catch (e) {
     console.error('TG send failed:', e.message);
@@ -257,7 +259,22 @@ export async function runAutosearch(env) {
         text += '\n… и ещё ' + (newLeads.length - 10) + ' в личном кабинете';
       }
 
-      await sendTelegram(botToken, user.telegram_chat_id, text);
+            // Inline-кнопки для первого лида (самого горячего)
+      var firstLead = newLeads[0];
+      var firstPhone = (firstLead.phone || '').replace(/[^\d+]/g, '');
+      var inline = {
+        inline_keyboard: [
+          [
+            { text: '📞 Позвонить', url: firstPhone ? 'tel:' + firstPhone : 'https://lead-hunt.su/' },
+            { text: '📍 Карта', url: 'https://yandex.ru/maps/?text=' + encodeURIComponent(firstLead.name + ' ' + city.n) }
+          ],
+          [
+            { text: '⭐ Все в избранное', callback_data: 'save_all:' + (newLeads.length) },
+            { text: '🌐 Открыть сайт', url: 'https://lead-hunt.su/' }
+          ]
+        ]
+      };
+      await sendTelegram(botToken, user.telegram_chat_id, text, inline);
       console.log('Отправлено ' + newLeads.length + ' новых лидов юзеру ' + user.email);
     } catch (e) {
       console.error('Ошибка для юзера ' + user.email + ': ' + e.message);
