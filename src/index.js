@@ -10,11 +10,11 @@ import { handleTelegramWebhook } from './telegram_bot.js';
 import { handleGoogleStart, handleGoogleCallback } from './google.js';
 
 export default {
-      async scheduled(event, env, ctx) {
+  async scheduled(event, env, ctx) {
     ctx.waitUntil(runAutosearch(env));
     ctx.waitUntil(runDailySummary(env));
   },
-  
+
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname === '/style.css') return new Response(styleCss, { headers: { 'Content-Type': 'text/css; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
@@ -171,7 +171,7 @@ function today() { return new Date().toISOString().slice(0, 10); }
 async function hashPassword(password, salt) {
   var enc = new TextEncoder();
   var keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
-  var bits = await crypto.subtle.deriveBits({ name:'PBKDF2', salt: enc.encode(salt), iterations: 10000, hash:'SHA-256' }, keyMaterial, 256);
+  var bits = await crypto.subtle.deriveBits({ name:'PBKDF2', salt: enc.encode(salt), iterations: 100000, hash:'SHA-256' }, keyMaterial, 256);
   var arr = new Uint8Array(bits);
   var out = '';
   for (var i = 0; i < arr.length; i++) out += arr[i].toString(16).padStart(2, '0');
@@ -228,6 +228,7 @@ async function handleRegister(request, env) {
   await env.DB.prepare('INSERT INTO sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)').bind(token, userId, now, expires).run();
   return json({ ok: true, user: { id: userId, email: email, plan: 'free', searches_today: 0 }, limit: FREE_LIMIT, result_limit: FREE_RESULT_LIMIT }, 200, { 'Set-Cookie': sessionCookie(token, SESSION_DAYS * 24 * 60 * 60) });
 }
+
 async function handleLogin(request, env) {
   if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
   if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405);
@@ -247,12 +248,14 @@ async function handleLogin(request, env) {
   var usedToday = user.last_search_date === todayStr ? (user.searches_today || 0) : 0;
   return json({ ok: true, user: { id: user.id, email: user.email, plan: user.plan, searches_today: usedToday }, limit: FREE_LIMIT, result_limit: resultLimitFor(user.plan) }, 200, { 'Set-Cookie': sessionCookie(token, SESSION_DAYS * 24 * 60 * 60) });
 }
+
 async function handleLogout(request, env) {
   if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
   var session = await getSession(request, env);
   if (session) await env.DB.prepare('DELETE FROM sessions WHERE token = ?').bind(session.token).run();
   return json({ ok: true }, 200, { 'Set-Cookie': 'session=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0' });
 }
+
 async function handleMe(request, env) {
   if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
   var session = await getSession(request, env);
@@ -262,6 +265,7 @@ async function handleMe(request, env) {
   var usedToday = u.last_search_date === todayStr ? (u.searches_today || 0) : 0;
   return json({ user: { id: u.user_id, email: u.email, plan: u.plan, searches_today: usedToday }, limit: FREE_LIMIT, result_limit: resultLimitFor(u.plan) });
 }
+
 function normalizeCity(s) { return s.toLowerCase().trim().replace(/ё/g, 'е').replace(/\s+/g, ' '); }
 
 async function handleLocate(request, env) {
@@ -277,9 +281,6 @@ async function handleLocate(request, env) {
   var u = session.user;
   var todayStr = today();
 
-  // Атомарный инкремент лимита для FREE.
-  // UPDATE сработает только если пользователь не исчерпал лимит.
-  // changes === 0 → лимит исчерпан (или гонка проиграна).
   if (u.plan === 'free') {
     var reserve = await env.DB.prepare(
       'UPDATE users SET ' +
@@ -289,7 +290,6 @@ async function handleLocate(request, env) {
     ).bind(todayStr, u.user_id, FREE_LIMIT).run();
 
     if (!reserve.meta || reserve.meta.changes === 0) {
-      // Не смогли зарезервировать — лимит исчерпан
       var fresh = await env.DB.prepare(
         'SELECT searches_today, last_search_date FROM users WHERE id = ?'
       ).bind(u.user_id).first();
@@ -302,10 +302,6 @@ async function handleLocate(request, env) {
       }, 429);
     }
   }
-
-  // Дальше — существующая логика (геокодинг, Overpass query, history).
-  // Если что-то упадёт после reserve — лимит уже списан. Это осознанный
-  // компромисс: лучше списать попытку, чем оставить дыру в лимите.
 
   var key = normalizeCity(city);
   var cityInfo = null;
@@ -346,7 +342,6 @@ async function handleLocate(request, env) {
   }
   var query = '[out:json][timeout:25];(' + parts + ');out center 150;';
 
-  // Актуальное значение used после атомарного UPDATE
   var freshAfter = await env.DB.prepare(
     'SELECT searches_today, last_search_date FROM users WHERE id = ?'
   ).bind(u.user_id).first();
@@ -373,44 +368,6 @@ async function handleLocate(request, env) {
     updated: new Date().toISOString()
   });
 }
-  if (!cityInfo) return json({ error: 'город не найден' }, 404);
-  var tags = NICHES[niche.toLowerCase().trim()];
-  if (!tags) return json({ error: 'ниша не поддерживается' }, 404);
-  var r = Math.min(cityInfo.r, 5000);
-  var dLat = r / 111000;
-  var dLon = r / (111000 * Math.cos(cityInfo.lat * Math.PI / 180));
-  var bbox = [(cityInfo.lat - dLat).toFixed(5), (cityInfo.lon - dLon).toFixed(5), (cityInfo.lat + dLat).toFixed(5), (cityInfo.lon + dLon).toFixed(5)];
-  var bboxStr = bbox.join(',');
-  var parts = '';
-  for (var i = 0; i < tags.length; i++) {
-    parts += 'node["' + tags[i][0] + '"="' + tags[i][1] + '"](' + bboxStr + ');';
-    parts += 'way["' + tags[i][0] + '"="' + tags[i][1] + '"](' + bboxStr + ');';
-  }
-  var query = '[out:json][timeout:25];(' + parts + ');out center 150;';
-  var newCount = usedToday + 1;
-        await env.DB.prepare(
-        'UPDATE users SET default_city = ?, default_niche = ?, telegram_chat_id = ?, notify_tg = ?, notify_email = ?, autosearch_enabled = ?, ai_style = ? WHERE id = ?'
-      ).bind(
-        String(body.default_city || '').slice(0, 100),
-        String(body.default_niche || '').slice(0, 100),
-        String(body.telegram_chat_id || '').slice(0, 50),
-        body.notify_tg ? 1 : 0,
-        body.notify_email ? 1 : 0,
-        body.autosearch_enabled ? 1 : 0,
-        (function(){
-          var s = String(body.ai_style || 'business');
-          return ['business','friendly','direct','selling'].indexOf(s) >= 0 ? s : 'business';
-        })(),
-        u.user_id
-      ).run();
-      
-  var historyId = null;
-  try {
-    var histRes = await env.DB.prepare('INSERT INTO search_history (user_id, city, niche, created_at) VALUES (?, ?, ?, ?)').bind(u.user_id, cityInfo.n, niche, Date.now()).run();
-    historyId = histRes.meta.last_row_id;
-  } catch (e) { console.error('history insert failed', e.message); }
-  return json({ city: cityInfo.n, country: COUNTRIES[cityInfo.c] || cityInfo.c, countryCode: cityInfo.c, niche: niche, bbox: bbox, query: query, used: newCount, limit: FREE_LIMIT, result_limit: resultLimitFor(u.plan), plan: u.plan, history_id: historyId, updated: new Date().toISOString() });
-}
 
 async function handleHistory(request, env) {
   if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
@@ -423,6 +380,7 @@ async function handleHistory(request, env) {
   var rows = await env.DB.prepare('SELECT id, city, niche, count, with_phone, created_at FROM search_history WHERE user_id = ? ORDER BY created_at DESC LIMIT ?').bind(u.user_id, limit).all();
   return json({ ok: true, items: rows.results || [] }, 200, { 'Cache-Control': 'no-store' });
 }
+
 async function handleHistoryUpdate(request, env) {
   if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
   if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405);
@@ -447,6 +405,7 @@ async function handleFavorites(request, env) {
   var rows = await env.DB.prepare('SELECT id, name, phone, email, addr, type, opening, lat, lon, source_city, source_niche, created_at FROM favorites WHERE user_id = ? ORDER BY created_at DESC LIMIT 200').bind(u.user_id).all();
   return json({ ok: true, items: rows.results || [] }, 200, { 'Cache-Control': 'no-store' });
 }
+
 async function handleFavAdd(request, env) {
   if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
   if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405);
@@ -463,6 +422,7 @@ async function handleFavAdd(request, env) {
     return json({ ok: true, id: res.meta.last_row_id, added: res.meta.changes > 0 });
   } catch (e) { return json({ error: 'не удалось сохранить' }, 500); }
 }
+
 async function handleFavRemove(request, env) {
   if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
   if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405);
@@ -490,8 +450,11 @@ async function handleChangePassword(request, env) {
   var newPassword = String(body.new_password || '');
   if (!currentPassword || !newPassword) return json({ error: 'заполни все поля' }, 400);
   if (newPassword.length < 6) return json({ error: 'новый пароль минимум 6 символов' }, 400);
-  var user = await env.DB.prepare('SELECT id, password_hash, salt FROM users WHERE id = ?').bind(session.user.user_id).first();
+  var user = await env.DB.prepare('SELECT id, password_hash, salt, auth_provider FROM users WHERE id = ?').bind(session.user.user_id).first();
   if (!user) return json({ error: 'пользователь не найден' }, 404);
+  if (user.auth_provider === 'google' || user.auth_provider === 'telegram') {
+    return json({ error: 'Смена пароля недоступна для входа через ' + (user.auth_provider === 'google' ? 'Google' : 'Telegram'), code: 'OAUTH_ACCOUNT' }, 400);
+  }
   var currentHash = await hashPassword(currentPassword, user.salt);
   if (currentHash !== user.password_hash) return json({ error: 'неверный текущий пароль' }, 401);
   var newSalt = randomHex(16);
@@ -500,6 +463,7 @@ async function handleChangePassword(request, env) {
   await env.DB.prepare('DELETE FROM sessions WHERE user_id = ? AND token != ?').bind(user.id, session.token).run();
   return json({ ok: true, message: 'Пароль обновлён' });
 }
+
 async function handleDeleteAccount(request, env) {
   if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
   if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405);
@@ -510,19 +474,22 @@ async function handleDeleteAccount(request, env) {
   var password = String(body.password || '');
   var confirm = String(body.confirm || '');
   if (confirm !== 'УДАЛИТЬ') return json({ error: 'введи УДАЛИТЬ заглавными' }, 400);
-  if (!password) return json({ error: 'нужен пароль' }, 400);
-  var user = await env.DB.prepare('SELECT id, password_hash, salt FROM users WHERE id = ?').bind(session.user.user_id).first();
+  var user = await env.DB.prepare('SELECT id, password_hash, salt, auth_provider FROM users WHERE id = ?').bind(session.user.user_id).first();
   if (!user) return json({ error: 'пользователь не найден' }, 404);
-  var hash = await hashPassword(password, user.salt);
-  if (hash !== user.password_hash) return json({ error: 'неверный пароль' }, 401);
+  var isOAuth = user.auth_provider === 'google' || user.auth_provider === 'telegram';
+  if (!isOAuth) {
+    if (!password) return json({ error: 'нужен пароль' }, 400);
+    var hash = await hashPassword(password, user.salt);
+    if (hash !== user.password_hash) return json({ error: 'неверный пароль' }, 401);
+  }
   var uid = user.id;
   await env.DB.prepare('DELETE FROM favorites WHERE user_id = ?').bind(uid).run();
   await env.DB.prepare('DELETE FROM search_history WHERE user_id = ?').bind(uid).run();
-  await env.DB.prepare('DELETE FROM subscriptions WHERE user_id = ?').bind(uid).run();
   await env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(uid).run();
   await env.DB.prepare('DELETE FROM users WHERE id = ?').bind(uid).run();
   return json({ ok: true, message: 'Аккаунт удалён' }, 200, { 'Set-Cookie': 'session=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0' });
 }
+
 async function handleSettings(request, env) {
   if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
   var session = await getSession(request, env);
@@ -531,19 +498,17 @@ async function handleSettings(request, env) {
 
   if (request.method === 'GET') {
     var row = await env.DB.prepare(
-      'SELECT default_city, default_niche, telegram_chat_id, notify_tg, notify_email, autosearch_enabled FROM users WHERE id = ?'
-    ).bind(u.user_id).first();
-    var row = await env.DB.prepare(
       'SELECT default_city, default_niche, telegram_chat_id, notify_tg, notify_email, autosearch_enabled, ai_style FROM users WHERE id = ?'
     ).bind(u.user_id).first();
-      return json({
+    return json({
       settings: {
         default_city: row.default_city || '',
         default_niche: row.default_niche || '',
         telegram_chat_id: row.telegram_chat_id || '',
         notify_tg: !!row.notify_tg,
         notify_email: !!row.notify_email,
-        autosearch_enabled: !!row.autosearch_enabled
+        autosearch_enabled: !!row.autosearch_enabled,
+        ai_style: row.ai_style || 'business'
       }
     });
   }
@@ -556,8 +521,10 @@ async function handleSettings(request, env) {
     var action = String(body.action || '');
 
     if (action === 'save') {
+      var styleVal = String(body.ai_style || 'business');
+      if (['business','friendly','direct','selling'].indexOf(styleVal) < 0) styleVal = 'business';
       await env.DB.prepare(
-        'UPDATE users SET default_city = ?, default_niche = ?, telegram_chat_id = ?, notify_tg = ?, notify_email = ?, autosearch_enabled = ? WHERE id = ?'
+        'UPDATE users SET default_city = ?, default_niche = ?, telegram_chat_id = ?, notify_tg = ?, notify_email = ?, autosearch_enabled = ?, ai_style = ? WHERE id = ?'
       ).bind(
         String(body.default_city || '').slice(0, 100),
         String(body.default_niche || '').slice(0, 100),
@@ -565,6 +532,7 @@ async function handleSettings(request, env) {
         body.notify_tg ? 1 : 0,
         body.notify_email ? 1 : 0,
         body.autosearch_enabled ? 1 : 0,
+        styleVal,
         u.user_id
       ).run();
       return json({ ok: true });
@@ -595,4 +563,12 @@ async function handleSettings(request, env) {
   }
 
   return json({ error: 'method not allowed' }, 405);
+}
+
+// ═══ PAYMENT WEBHOOK (заглушка до подключения ЮKassa) ═══
+async function handlePaymentWebhook(request, env) {
+  if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
+  if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405);
+  // TODO: после подключения ЮKassa — проверка подписи и активация PRO
+  return json({ ok: true, note: 'webhook placeholder' });
 }
