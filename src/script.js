@@ -1269,7 +1269,7 @@
     setTimeout(function(){
       try { checkTelegramAuth(); } catch(e){ console.error('checkTelegramAuth err', e); }
     }, 100);
-    // Проверяем возврат с оплаты
+        // Проверяем возврат с оплаты
     try {
       var params = new URLSearchParams(window.location.search);
       if(params.get('payment') === 'success'){
@@ -1281,7 +1281,6 @@
         }, 800);
       }
     } catch(e){}
-  })
   }).catch(function(e){
     console.error('boot err', e);
     var pl = $('preloader'), app = $('app');
