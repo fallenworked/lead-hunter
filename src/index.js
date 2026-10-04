@@ -23,8 +23,9 @@ export default {
     if (url.pathname === '/api/telegram/webhook') return handleTelegramWebhook(request, env);
     if (url.pathname === '/api/cron/run') {
       const secret = url.searchParams.get('secret');
-      if (secret !== 'lh_test_2026') return new Response('forbidden', { status: 403 });
-      const { runAutosearch, runDailySummary } = await import('./auto.js');
+      if (!env.CRON_SECRET || secret !== env.CRON_SECRET) {
+        return new Response('forbidden', { status: 403 });
+      }
       const result = {};
       try { await runAutosearch(env); result.autosearch = 'ok'; } catch(e){ result.autosearch = e.message; }
       try { await runDailySummary(env); result.summary = 'ok'; } catch(e){ result.summary = e.message; }
