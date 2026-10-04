@@ -480,18 +480,37 @@
     });
   }
 
-  function bindPay(){
+   function bindPay(){
     var bg = $('payBg'), close = $('payClose'), cta = $('payCta');
     if(bg) bg.addEventListener('click', closePay);
     if(close) close.addEventListener('click', closePay);
     if(cta) cta.addEventListener('click', function(){
+      if(!state.user){ closePay(); setTimeout(openAuth, 200); return; }
       cta.disabled = true;
-      cta.innerHTML = 'Подключение...';
-      setTimeout(function(){
-        alert('Скоро подключим платёжную систему.\n\nПока напиши в поддержку @leadhunter_support - активируем PRO вручную.');
-        cta.disabled = false;
-        cta.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg> Перейти к оплате';
-      }, 600);
+      var originalHTML = cta.innerHTML;
+      cta.innerHTML = 'Создаём платёж…';
+      fetch('/api/payment/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ period: plansPeriod })
+      })
+        .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, data: d }; }); })
+        .then(function(res){
+          if(!res.ok){
+            cta.disabled = false;
+            cta.innerHTML = originalHTML;
+            if(res.data.code === 'AUTH_REQUIRED'){ closePay(); openAuth(); return; }
+            alert(res.data.error || 'Не удалось создать платёж');
+            return;
+          }
+          // Редирект на страницу оплаты (тест или реальную ЮKassa)
+          window.location.href = res.data.confirmation_url;
+        })
+        .catch(function(e){
+          cta.disabled = false;
+          cta.innerHTML = originalHTML;
+          alert('Ошибка сети: ' + e.message);
+        });
     });
   }
 
@@ -1245,11 +1264,24 @@
   bindLeadScript();
   renderPresets();
 
-  preload().then(function(){
+    preload().then(function(){
     refreshMe().then(function(){ setTimeout(applyDefaults, 200); });
     setTimeout(function(){
       try { checkTelegramAuth(); } catch(e){ console.error('checkTelegramAuth err', e); }
     }, 100);
+    // Проверяем возврат с оплаты
+    try {
+      var params = new URLSearchParams(window.location.search);
+      if(params.get('payment') === 'success'){
+        var clean = window.location.origin + window.location.pathname;
+        window.history.replaceState(null, '', clean);
+        setTimeout(function(){
+          alert('Оплата прошла! PRO активирован. Обнови страницу если не видишь изменения.');
+          location.reload();
+        }, 800);
+      }
+    } catch(e){}
+  })
   }).catch(function(e){
     console.error('boot err', e);
     var pl = $('preloader'), app = $('app');
