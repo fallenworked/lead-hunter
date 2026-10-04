@@ -38,12 +38,12 @@ h1{font-size:24px;font-weight:900;letter-spacing:-.03em;margin-bottom:8px;color:
 .features{list-style:none;margin-bottom:32px;display:flex;flex-direction:column;gap:10px}
 .features li{display:flex;align-items:center;gap:10px;font-size:13.5px;color:#8a8a8a}
 .features li::before{content:"✓";color:#4ade80;font-weight:900;flex-shrink:0}
-.btn{width:100%;padding:16px;border-radius:11px;background:#fff;color:#0a0a0a;border:0;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;transition:all .2s;letter-spacing:.01em}
+.btn{display:block;width:100%;padding:16px;border-radius:11px;background:#fff;color:#0a0a0a;border:0;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;transition:all .2s;letter-spacing:.01em;text-decoration:none;text-align:center;box-sizing:border-box}
 .btn:hover{transform:translateY(-1px);box-shadow:0 8px 32px rgba(201,205,214,.35)}
 .btn:active{transform:scale(.98)}
 .btn:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
-.btn.ghost{background:transparent;color:#8a8a8a;border:1px solid #2e2e2e;margin-top:10px}
-.btn.ghost:hover{color:#fff;border-color:#808080;box-shadow:none}
+.btn.ghost{display:block;width:100%;background:transparent;color:#8a8a8a;border:1px solid #2e2e2e;margin-top:10px;text-align:center;text-decoration:none;box-sizing:border-box}
+.btn.ghost:hover{color:#fff;border-color:#808080;box-shadow:none;transform:none}
 .status{padding:16px;border-radius:10px;background:#171717;border:1px solid #2e2e2e;font-size:13.5px;color:#8a8a8a;margin-bottom:24px;text-align:center}
 .status.ok{color:#4ade80;border-color:rgba(74,222,128,.3)}
 .status.err{color:#f87171;border-color:rgba(248,113,113,.3)}
@@ -104,8 +104,6 @@ export async function handleCreatePayment(request, env) {
   var paymentId = 'pay_' + randomHex(16);
   var now = Date.now();
 
-  // Определяем провайдера. Если реальная ЮKassa настроена — используем её.
-  // Иначе — тестовый режим (redirect на /pay-test).
   var yookassaShopId = env.YOOKASSA_SHOP_ID;
   var yookassaSecret = env.YOOKASSA_SECRET_KEY;
 
@@ -149,7 +147,6 @@ export async function handleCreatePayment(request, env) {
       if (ykData.confirmation && ykData.confirmation.confirmation_url) {
         confirmationUrl = ykData.confirmation.confirmation_url;
       }
-      // Используем ID от ЮKassa для связи
       if (ykData.id) paymentId = ykData.id;
     } catch (e) {
       console.error('YooKassa fetch failed:', e.message);
@@ -172,7 +169,7 @@ export async function handleCreatePayment(request, env) {
   });
 }
 
-// ═══ СТРАНИЦА СИМУЛЯЦИИ ОПЛАТЫ (для теста до подключения ЮKassa) ═══
+// ═══ СТРАНИЦА СИМУЛЯЦИИ ОПЛАТЫ ═══
 export async function handlePayTestPage(request, env) {
   var url = new URL(request.url);
   var id = url.searchParams.get('id');
@@ -221,14 +218,14 @@ export async function handlePayTestPage(request, env) {
     'if(d.ok){document.querySelector(".card").innerHTML="<div class=\\"badge\\">PRO</div><h1>Оплачено ✓</h1><p class=\\"sub\\">Подписка активирована. Возвращайся на сайт — там уже PRO.</p><a class=\\"btn\\" href=\\"/\\">Перейти на сайт</a>";}' +
     'else{document.querySelector(".card").innerHTML="<div class=\\"badge\\">ОШИБКА</div><h1>Не удалось</h1><p class=\\"sub\\">'+'Ошибка. Попробуй ещё раз или напиши в поддержку.'+'</p><a class=\\"btn\\" href=\\"/\\">На главную</a>";}' +
     '})' +
-    '.catch(function(){document.querySelector(".card").innerHTML="<div class=\\"badge\\">ОШИБКА</div><h1>Сеть</h1><p class=\\"sub\\">Не удалось связаться. Попробуй позже.</p>";});' +
+    '.catch(function(){document.querySelector(".card").innerHTML="<div class=\\"badge\\">ОШИБКА</div><h1>Сеть</h1><p class=\\"sub\\">Не удалось связаться. Попробуй позже.</p><a class=\\"btn\\" href=\\"/\\">На главную</a>";});' +
     '});' +
     '</script>';
 
   return new Response(htmlPage(body), { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
 }
 
-// ═══ АКТИВАЦИЯ PRO (общая функция для симуляции и реального webhook) ═══
+// ═══ АКТИВАЦИЯ PRO ═══
 async function activateSubscription(env, paymentId, rawPayload) {
   var intent = await env.DB.prepare(
     'SELECT payment_id, user_id, amount, period, status FROM payment_intents WHERE payment_id = ?'
@@ -241,17 +238,14 @@ async function activateSubscription(env, paymentId, rawPayload) {
   var now = Date.now();
   var expiresAt = now + price.days * 24 * 60 * 60 * 1000;
 
-  // Помечаем intent как succeeded
   await env.DB.prepare(
     'UPDATE payment_intents SET status = ?, paid_at = ? WHERE payment_id = ?'
   ).bind('succeeded', now, paymentId).run();
 
-  // Создаём подписку
   await env.DB.prepare(
     'INSERT INTO subscriptions (user_id, payment_id, provider, amount, period, status, started_at, expires_at, created_at, raw_payload) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   ).bind(intent.user_id, paymentId, 'test', intent.amount, intent.period, 'active', now, expiresAt, now, rawPayload ? JSON.stringify(rawPayload).slice(0, 2000) : null).run();
 
-  // Обновляем пользователя
   await env.DB.prepare(
     'UPDATE users SET plan = ? WHERE id = ?'
   ).bind('pro', intent.user_id).run();
@@ -259,7 +253,7 @@ async function activateSubscription(env, paymentId, rawPayload) {
   return { ok: true, user_id: intent.user_id, expires_at: expiresAt };
 }
 
-// ═══ ТЕСТОВАЯ ПОДТВЕРЖДЕНИЕ (вызывается из /pay-test) ═══
+// ═══ ТЕСТОВАЯ ПОДТВЕРЖДЕНИЕ ═══
 export async function handleTestConfirm(request, env) {
   if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
   if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405);
@@ -277,7 +271,7 @@ export async function handleTestConfirm(request, env) {
   return json({ ok: true, already: !!result.already });
 }
 
-// ═══ WEBHOOK ЮKassa (или другого провайдера) ═══
+// ═══ WEBHOOK ═══
 export async function handlePaymentWebhook(request, env) {
   if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
   if (request.method !== 'POST') return new Response('method not allowed', { status: 405 });
@@ -290,7 +284,6 @@ export async function handlePaymentWebhook(request, env) {
   try { data = JSON.parse(body); }
   catch (e) { return new Response('bad json', { status: 400 }); }
 
-  // ЮKassa webhook: { event: 'payment.succeeded', object: { id, status, paid, metadata: {...} } }
   var event = data.event || '';
   var obj = data.object || {};
 
@@ -301,7 +294,6 @@ export async function handlePaymentWebhook(request, env) {
       return new Response('ok', { status: 200 });
     }
 
-    // Проверяем, что payment_id есть в наших intent'ах
     var intent = await env.DB.prepare(
       'SELECT payment_id FROM payment_intents WHERE payment_id = ?'
     ).bind(paymentId).first();
