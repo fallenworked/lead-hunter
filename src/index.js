@@ -270,16 +270,49 @@ async function handleLocate(request, env) {
   var city = (url.searchParams.get('city') || '').trim();
   var niche = (url.searchParams.get('niche') || '').trim();
   if (!city || !niche) return json({ error: 'нужны city и niche' }, 400);
+
   var session = await getSession(request, env);
   if (!session) return json({ error: 'нужен вход', code: 'AUTH_REQUIRED' }, 401);
+
   var u = session.user;
   var todayStr = today();
-  var usedToday = u.last_search_date === todayStr ? (u.searches_today || 0) : 0;
-  if (u.plan === 'free' && usedToday >= FREE_LIMIT) return json({ error: 'лимит бесплатных поисков исчерпан', code: 'LIMIT_REACHED', limit: FREE_LIMIT, used: usedToday }, 429);
+
+  // Атомарный инкремент лимита для FREE.
+  // UPDATE сработает только если пользователь не исчерпал лимит.
+  // changes === 0 → лимит исчерпан (или гонка проиграна).
+  if (u.plan === 'free') {
+    var reserve = await env.DB.prepare(
+      'UPDATE users SET ' +
+      'searches_today = CASE WHEN last_search_date = ?1 THEN searches_today + 1 ELSE 1 END, ' +
+      'last_search_date = ?1 ' +
+      'WHERE id = ?2 AND (last_search_date != ?1 OR searches_today < ?3)'
+    ).bind(todayStr, u.user_id, FREE_LIMIT).run();
+
+    if (!reserve.meta || reserve.meta.changes === 0) {
+      // Не смогли зарезервировать — лимит исчерпан
+      var fresh = await env.DB.prepare(
+        'SELECT searches_today, last_search_date FROM users WHERE id = ?'
+      ).bind(u.user_id).first();
+      var usedNow = (fresh && fresh.last_search_date === todayStr) ? (fresh.searches_today || 0) : 0;
+      return json({
+        error: 'лимит бесплатных поисков исчерпан',
+        code: 'LIMIT_REACHED',
+        limit: FREE_LIMIT,
+        used: usedNow
+      }, 429);
+    }
+  }
+
+  // Дальше — существующая логика (геокодинг, Overpass query, history).
+  // Если что-то упадёт после reserve — лимит уже списан. Это осознанный
+  // компромисс: лучше списать попытку, чем оставить дыру в лимите.
+
   var key = normalizeCity(city);
   var cityInfo = null;
-  if (CITIES[key]) { var c = CITIES[key]; cityInfo = { lat: c[0], lon: c[1], r: c[2], c: c[3], n: c[4] }; }
-  else {
+  if (CITIES[key]) {
+    var c = CITIES[key];
+    cityInfo = { lat: c[0], lon: c[1], r: c[2], c: c[3], n: c[4] };
+  } else {
     try {
       var pr = await fetch('https://photon.komoot.io/api/?q=' + encodeURIComponent(city) + '&limit=1&lang=ru', { headers: { 'User-Agent': 'LeadHunter/1.0' } });
       if (pr.ok) {
@@ -296,6 +329,50 @@ async function handleLocate(request, env) {
       }
     } catch (e) {}
   }
+  if (!cityInfo) return json({ error: 'город не найден' }, 404);
+
+  var tags = NICHES[niche.toLowerCase().trim()];
+  if (!tags) return json({ error: 'ниша не поддерживается' }, 404);
+
+  var r = Math.min(cityInfo.r, 5000);
+  var dLat = r / 111000;
+  var dLon = r / (111000 * Math.cos(cityInfo.lat * Math.PI / 180));
+  var bbox = [(cityInfo.lat - dLat).toFixed(5), (cityInfo.lon - dLon).toFixed(5), (cityInfo.lat + dLat).toFixed(5), (cityInfo.lon + dLon).toFixed(5)];
+  var bboxStr = bbox.join(',');
+  var parts = '';
+  for (var i = 0; i < tags.length; i++) {
+    parts += 'node["' + tags[i][0] + '"="' + tags[i][1] + '"](' + bboxStr + ');';
+    parts += 'way["' + tags[i][0] + '"="' + tags[i][1] + '"](' + bboxStr + ');';
+  }
+  var query = '[out:json][timeout:25];(' + parts + ');out center 150;';
+
+  // Актуальное значение used после атомарного UPDATE
+  var freshAfter = await env.DB.prepare(
+    'SELECT searches_today, last_search_date FROM users WHERE id = ?'
+  ).bind(u.user_id).first();
+  var newCount = (freshAfter && freshAfter.last_search_date === todayStr) ? (freshAfter.searches_today || 0) : 1;
+
+  var historyId = null;
+  try {
+    var histRes = await env.DB.prepare('INSERT INTO search_history (user_id, city, niche, created_at) VALUES (?, ?, ?, ?)').bind(u.user_id, cityInfo.n, niche, Date.now()).run();
+    historyId = histRes.meta.last_row_id;
+  } catch (e) { console.error('history insert failed', e.message); }
+
+  return json({
+    city: cityInfo.n,
+    country: COUNTRIES[cityInfo.c] || cityInfo.c,
+    countryCode: cityInfo.c,
+    niche: niche,
+    bbox: bbox,
+    query: query,
+    used: u.plan === 'free' ? newCount : 0,
+    limit: FREE_LIMIT,
+    result_limit: resultLimitFor(u.plan),
+    plan: u.plan,
+    history_id: historyId,
+    updated: new Date().toISOString()
+  });
+}
   if (!cityInfo) return json({ error: 'город не найден' }, 404);
   var tags = NICHES[niche.toLowerCase().trim()];
   if (!tags) return json({ error: 'ниша не поддерживается' }, 404);
