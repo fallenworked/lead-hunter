@@ -191,7 +191,7 @@
     if(state.user){
       auth.style.display = 'block';
       guest.style.display = 'none';
-      var initial = state.user.email.charAt(0).toUpperCase();
+      var initial = (state.user.email || '?').charAt(0).toUpperCase();
       var subText = '';
       if(state.user.plan === 'free'){ var used = state.user.searches_today || 0; subText = 'Осталось поисков: <b>' + Math.max(0, state.limit - used) + '/' + state.limit + '</b>'; }
       else subText = 'Подписка активна';
@@ -233,16 +233,16 @@
     }).catch(function(){ return null; });
   }
 
-    function applyDefaults(){
+  function applyDefaults(){
     if(!state.user) return;
     fetch('/api/settings').then(function(r){ return r.json(); }).then(function(d){
       if(!d.settings) return;
       var c = $('city'), n = $('niche');
-      if(c && d.settings.default_city) c.value = d.settings.default_city;
-      if(n && d.settings.default_niche) n.value = d.settings.default_niche;
+      if(c && d.settings.default_city && !c.value) c.value = d.settings.default_city;
+      if(n && d.settings.default_niche && !n.value) n.value = d.settings.default_niche;
     }).catch(function(){});
   }
-  
+
   function openAuth(){
     var m = $('authModal');
     if(!m) return;
@@ -353,7 +353,7 @@
   }
   function closePay(){ var m = $('payModal'); if(m) m.classList.remove('show'); }
 
-    function openSettings(){
+  function openSettings(){
     closeDrawer();
     setTimeout(function(){
       if(!state.user){ openAuth(); return; }
@@ -367,6 +367,14 @@
         $('settNotifyTg').checked = !!d.settings.notify_tg;
         $('settNotifyEmail').checked = !!d.settings.notify_email;
         $('settAutosearch').checked = !!d.settings.autosearch_enabled;
+
+        // AI стиль
+        var styleVal = d.settings.ai_style || 'business';
+        var chips = document.querySelectorAll('#aiStyleChips .ai-style-chip');
+        for (var ci = 0; ci < chips.length; ci++) {
+          if (chips[ci].getAttribute('data-style') === styleVal) chips[ci].classList.add('active');
+          else chips[ci].classList.remove('active');
+        }
       }).catch(function(){});
       m.classList.add('show');
     }, 250);
@@ -377,6 +385,10 @@
     var btn = $('settSave'), msg = $('settMsg');
     btn.disabled = true;
     msg.textContent = 'Сохранение…'; msg.className = 'sett-msg';
+
+    var activeStyleChip = document.querySelector('#aiStyleChips .ai-style-chip.active');
+    var aiStyle = activeStyleChip ? activeStyleChip.getAttribute('data-style') : 'business';
+
     fetch('/api/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -387,7 +399,8 @@
         telegram_chat_id: $('settChatId').value.trim(),
         notify_tg: $('settNotifyTg').checked,
         notify_email: $('settNotifyEmail').checked,
-        autosearch_enabled: $('settAutosearch').checked
+        autosearch_enabled: $('settAutosearch').checked,
+        ai_style: aiStyle
       })
     }).then(function(r){ return r.json(); }).then(function(d){
       btn.disabled = false;
@@ -440,6 +453,20 @@
     if(exp) exp.addEventListener('click', exportData);
     if(clrH) clrH.addEventListener('click', clearHistory);
     if(clrF) clrF.addEventListener('click', clearFavorites);
+
+    var chipsWrap = $('aiStyleChips');
+    if (chipsWrap) chipsWrap.addEventListener('click', function(e){
+      var el = e.target;
+      while (el && el !== chipsWrap) {
+        if (el.classList && el.classList.contains('ai-style-chip')) {
+          var all = chipsWrap.querySelectorAll('.ai-style-chip');
+          for (var i = 0; i < all.length; i++) all[i].classList.remove('active');
+          el.classList.add('active');
+          return;
+        }
+        el = el.parentNode;
+      }
+    });
   }
 
   function bindPay(){
@@ -921,7 +948,7 @@
     setTimeout(function(){
       if(!state.user){ openAuth(); return; }
       var m = $('profModal'); if(!m) return;
-      var initial = state.user.email.charAt(0).toUpperCase();
+      var initial = (state.user.email || '?').charAt(0).toUpperCase();
       $('profAvatar').textContent = initial;
       $('profEmail').textContent = state.user.email;
       var badge = $('profBadge');
@@ -1086,11 +1113,11 @@
     if(oauthGoogle) oauthGoogle.addEventListener('click', startGoogleAuth);
     if(oauthTelegram) oauthTelegram.addEventListener('click', startTelegramAuth);
     document.addEventListener('keydown', function(e){
-        if(e.key === 'Escape'){ closeAuth(); closePlans(); closePay(); closeSettings(); closeAI(); closeDrawer(); closeHistory(); closeFavorites(); closeProfile(); }
+      if(e.key === 'Escape'){ closeAuth(); closePlans(); closePay(); closeSettings(); closeAI(); closeDrawer(); closeHistory(); closeFavorites(); closeProfile(); }
     });
   }
 
-    bind();
+  bind();
   bindPlans();
   bindPay();
   bindSettings();
