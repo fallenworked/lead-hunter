@@ -275,3 +275,50 @@ export async function searchForUser(user, env) {
   var leads = elements.map(extract).filter(Boolean);
   return { total: leads.length, leads: leads };
 }
+export async function runDailySummary(env) {
+  var botToken = env.TELEGRAM_NOTIFY_BOT_TOKEN;
+  if (!botToken) return;
+
+  var now = new Date();
+  // Переводим в московское время (UTC+3)
+  var mskHour = (now.getUTCHours() + 3) % 24;
+
+  var users = await env.DB.prepare(
+    "SELECT id, email, default_city, default_niche, telegram_chat_id, daily_summary_hour FROM users WHERE plan = 'pro' AND daily_summary = 1 AND telegram_chat_id != ''"
+  ).all();
+
+  if (!users.results) return;
+
+  for (var i = 0; i < users.results.length; i++) {
+    var u = users.results[i];
+    var targetHour = u.daily_summary_hour || 20;
+    if (mskHour !== targetHour) continue;
+
+    try {
+      // Считаем статистику за сегодня
+      var dayStart = new Date();
+      dayStart.setHours(0, 0, 0, 0);
+
+      var searches = await env.DB.prepare(
+        "SELECT COUNT(*) as cnt FROM search_history WHERE user_id = ? AND created_at > ?"
+      ).bind(u.id, dayStart.getTime()).first();
+
+      var newLeads = await env.DB.prepare(
+        "SELECT COUNT(*) as cnt FROM autosearch_results WHERE user_id = ? AND created_at > ?"
+      ).bind(u.id, dayStart.getTime()).first();
+
+      var text =
+        '📊 <b>Сводка за день</b>\n\n' +
+        '🔍 Поисков: <b>' + (searches.cnt || 0) + '</b>\n' +
+        '🎯 Новых лидов: <b>' + (newLeads.cnt || 0) + '</b>\n';
+
+      if (u.default_city && u.default_niche) {
+        text += '\nОтслеживается: <b>' + u.default_niche + '</b> в <b>' + u.default_city + '</b>';
+      }
+
+      await send(env, u.telegram_chat_id, text);
+    } catch (e) {
+      console.error('summary error', u.email, e.message);
+    }
+  }
+}
