@@ -330,7 +330,32 @@
       setTimeout(updatePlansSlider, 120);
     }, 280);
   }
-  function closePlans(){ var pm = $('plansModal'); if(pm) pm.classList.remove('show'); }
+    function openPay(){
+    var m = $('payModal');
+    if(!m) return;
+    var isYear = plansPeriod === 'year';
+    $('payPlanDesc').textContent = isYear ? 'Подписка на 12 месяцев' : 'Подписка на 1 месяц';
+    $('payPlanPrice').textContent = isYear ? '1199 ₽' : '199 ₽';
+    closePlans();
+    setTimeout(function(){ m.classList.add('show'); }, 200);
+  }
+
+  function closePay(){ var m = $('payModal'); if(m) m.classList.remove('show'); }
+
+  function bindPay(){
+    var bg = $('payBg'), close = $('payClose'), cta = $('payCta');
+    if(bg) bg.addEventListener('click', closePay);
+    if(close) close.addEventListener('click', closePay);
+    if(cta) cta.addEventListener('click', function(){
+      cta.disabled = true;
+      cta.innerHTML = 'Подключение...';
+      setTimeout(function(){
+        alert('Скоро подключим платёжную систему.\n\nПока напиши в поддержку @leadhunter_support - активируем PRO вручную.');
+        cta.disabled = false;
+        cta.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg> Перейти к оплате';
+      }, 600);
+    });
+  }
 
   function updatePlansToggle(){
     var btns = document.querySelectorAll('.plans-toggle-btn');
@@ -397,9 +422,9 @@
       updatePlansToggle();
       updatePlansSlider();
     });
-    if(proCta) proCta.addEventListener('click', function(){
+        if(proCta) proCta.addEventListener('click', function(){
       if(proCta.disabled) return;
-      alert('Скоро подключим оплату.\nТариф: ' + (plansPeriod === 'year' ? '1199₽/год' : '199₽/мес') + '\n\nПока напиши в поддержку - активируем вручную.');
+      openPay();
     });
     if(freeCta) freeCta.addEventListener('click', function(){
       if(freeCta.disabled) return;
@@ -965,8 +990,9 @@
     });
   }
 
-  bind();
+    bind();
   bindPlans();
+  bindPay();
   bindAI();
   bindHistory();
   bindFavorites();
