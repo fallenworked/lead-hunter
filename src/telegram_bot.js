@@ -1,6 +1,7 @@
-// Telegram-бот для управления автоматизацией
+// Telegram-бот для управления автоматизацией Lead Hunter
+import { searchForUser } from './auto.js';
 
-const HELP_TEXT = 
+const HELP_TEXT =
   '👋 <b>Lead Hunter</b>\n\n' +
   'Управление поиском прямо в Telegram.\n\n' +
   '<b>Команды:</b>\n' +
@@ -29,6 +30,14 @@ function send(env, chatId, text, replyMarkup) {
   }).then(function(r){ return r.json(); });
 }
 
+function answerCallback(env, callbackId) {
+  return fetch('https://api.telegram.org/bot' + env.TELEGRAM_NOTIFY_BOT_TOKEN + '/answerCallbackQuery', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ callback_query_id: callbackId })
+  });
+}
+
 async function getChatId(chatId, env) {
   return await env.DB.prepare('SELECT * FROM users WHERE telegram_chat_id = ?').bind(String(chatId)).first();
 }
@@ -47,42 +56,57 @@ async function cmdStart(chatId, user, env) {
   if (!user) {
     return send(env, chatId,
       '👋 <b>Добро пожаловать в Lead Hunter!</b>\n\n' +
-      'Чтобы связать этот Telegram с аккаунтом на сайте, зайди на <b>lead-hunt.su</b> через кнопку «Войти через Telegram».\n\n' +
+      'Чтобы связать этот Telegram с аккаунтом на сайте, зайди на <b>lead-hunt.su</b> и войди через кнопку «Войти через Telegram».\n\n' +
       'После этого тут будут работать команды управления автопоиском.',
       mainMenu()
     );
   }
   return send(env, chatId,
     '👋 С возвращением!\n\n' +
-    'Твой аккаунт: <b>' + user.email + '</b>\n' +
+    'Аккаунт: <b>' + user.email + '</b>\n' +
     'План: <b>' + (user.plan === 'pro' ? 'PRO' : 'FREE') + '</b>\n\n' +
-    'Команды:\n' +
-    '/settings - текущие настройки\n' +
-    '/city <i>название</i>\n' +
-    '/niche <i>название</i>\n' +
-    '/autosearch on|off\n' +
-    '/summary on|off\n' +
+    'Используй кнопки ниже или команды:\n' +
+    '/settings - настройки\n' +
     '/search - разовый поиск\n' +
-    '/help - справка',
+    '/help - все команды',
     mainMenu()
   );
 }
 
 async function cmdSettings(chatId, user, env) {
   if (!user) return send(env, chatId, 'Сначала привяжи аккаунт на сайте: lead-hunt.su');
+  var summaryText = user.daily_summary
+    ? 'в ' + (user.daily_summary_hour || 20) + ':00 МСК'
+    : 'выключена';
+
   var text =
     '⚙️ <b>Текущие настройки</b>\n\n' +
     '🏙 Город: <b>' + (user.default_city || '— не задан —') + '</b>\n' +
     '🏷 Ниша: <b>' + (user.default_niche || '— не задана —') + '</b>\n' +
     '🤖 Автопоиск: <b>' + (user.autosearch_enabled ? 'включён' : 'выключен') + '</b>\n' +
-    '📊 Ежедневная сводка: <b>' + (user.daily_summary ? 'в ' + user.daily_summary_hour + ':00 МСК' : 'выключена') + '</b>\n\n' +
-    'Изменить:\n' +
-    '/city <i>Казань</i>\n' +
-    '/niche <i>кафе</i>\n' +
-    '/autosearch on\n' +
-    '/summary on\n' +
-    '/summaryhour 20';
-  return send(env, chatId, text);
+    '📊 Ежедневная сводка: <b>' + summaryText + '</b>';
+
+  var markup = {
+    inline_keyboard: [
+      [
+        { text: '🏙 Изменить город', callback_data: 'ask_city' },
+        { text: '🏷 Изменить нишу', callback_data: 'ask_niche' }
+      ],
+      [
+        {
+          text: user.autosearch_enabled ? '⏸ Выключить автопоиск' : '▶️ Включить автопоиск',
+          callback_data: user.autosearch_enabled ? 'auto_off' : 'auto_on'
+        }
+      ],
+      [
+        {
+          text: user.daily_summary ? '📊 Выключить сводку' : '📊 Включить сводку',
+          callback_data: user.daily_summary ? 'sum_off' : 'sum_on'
+        }
+      ]
+    ]
+  };
+  return send(env, chatId, text, markup);
 }
 
 async function cmdCity(chatId, user, args, env) {
@@ -141,12 +165,11 @@ async function cmdSearch(chatId, user, env) {
   if (!user.default_city || !user.default_niche) {
     return send(env, chatId, '⚠️ Задай город и нишу:\n/city Казань\n/niche кафе');
   }
-  await send(env, chatId, '🔍 Ищу <b>' + user.default_niche + '</b> в <b>' + user.default_city + '</b>… Это займёт 5-15 секунд.');
-  // Запускаем поиск через ту же логику что в auto.js
+  await send(env, chatId, '🔍 Ищу <b>' + user.default_niche + '</b> в <b>' + user.default_city + '</b>…\nЭто займёт 5-15 секунд.');
   try {
-    var result = await runSearchForUser(user, env);
+    var result = await searchForUser(user, env);
     if (!result.leads.length) {
-      return send(env, chatId, '😕 Ничего не найдено. Попробуй другую нишу или город.');
+      return send(env, chatId, '😕 Ничего не найдено. Попробуй другую нишу или город.', mainMenu());
     }
     var text = '🎯 <b>Найдено ' + result.total + ' лидов</b>\n';
     text += 'Город: <b>' + user.default_city + '</b> · Ниша: <b>' + user.default_niche + '</b>\n\n';
@@ -159,18 +182,19 @@ async function cmdSearch(chatId, user, env) {
       text += '\n';
     }
     if (result.total > 10) text += '\n… и ещё ' + (result.total - 10) + '. Смотри на сайте lead-hunt.su';
-    return send(env, chatId, text, mainMenu());
+
+    var markup = {
+      inline_keyboard: [[
+        { text: '🌐 Все на сайте', url: 'https://lead-hunt.su/' }
+      ]]
+    };
+    return send(env, chatId, text, markup);
   } catch (e) {
     return send(env, chatId, '❌ Ошибка поиска: ' + e.message);
   }
 }
 
-// Импорт логики поиска из auto.js
-import { searchForUser } from './auto.js';
-
-async function runSearchForUser(user, env) {
-  return await searchForUser(user, env);
-}
+// ═══ HANDLERS ═══
 
 export async function handleTelegramWebhook(request, env) {
   if (request.method !== 'POST') return new Response('ok');
@@ -178,6 +202,70 @@ export async function handleTelegramWebhook(request, env) {
   try { body = await request.json(); }
   catch (e) { return new Response('bad json', { status: 400 }); }
 
+  // ═══ CALLBACK QUERY (inline-кнопки) ═══
+  if (body.callback_query) {
+    var cb = body.callback_query;
+    var cbChatId = cb.message.chat.id;
+    var cbData = cb.data || '';
+    var cbUser = await getChatId(cbChatId, env);
+
+    await answerCallback(env, cb.id);
+
+    if (cbData === 'save_all' || cbData.indexOf('save_all:') === 0) {
+      if (!cbUser) {
+        await send(env, cbChatId, 'Аккаунт не привязан. Зайди на lead-hunt.su через Telegram.');
+      } else {
+        await send(env, cbChatId, '⭐ Лиды уже сохранены. Открой сайт чтобы посмотреть: lead-hunt.su');
+      }
+      return new Response('ok');
+    }
+
+    if (cbData === 'auto_on') {
+      if (!cbUser) return new Response('ok');
+      if (cbUser.plan !== 'pro') {
+        await send(env, cbChatId, '🚫 Автопоиск только в PRO.');
+        return new Response('ok');
+      }
+      await env.DB.prepare('UPDATE users SET autosearch_enabled = 1 WHERE id = ?').bind(cbUser.id).run();
+      await send(env, cbChatId, '✅ Автопоиск включён');
+      return new Response('ok');
+    }
+
+    if (cbData === 'auto_off') {
+      if (!cbUser) return new Response('ok');
+      await env.DB.prepare('UPDATE users SET autosearch_enabled = 0 WHERE id = ?').bind(cbUser.id).run();
+      await send(env, cbChatId, '⏸ Автопоиск выключен');
+      return new Response('ok');
+    }
+
+    if (cbData === 'sum_on') {
+      if (!cbUser) return new Response('ok');
+      await env.DB.prepare('UPDATE users SET daily_summary = 1 WHERE id = ?').bind(cbUser.id).run();
+      await send(env, cbChatId, '📊 Ежедневная сводка включена в ' + (cbUser.daily_summary_hour || 20) + ':00 МСК');
+      return new Response('ok');
+    }
+
+    if (cbData === 'sum_off') {
+      if (!cbUser) return new Response('ok');
+      await env.DB.prepare('UPDATE users SET daily_summary = 0 WHERE id = ?').bind(cbUser.id).run();
+      await send(env, cbChatId, '⏸ Сводка выключена');
+      return new Response('ok');
+    }
+
+    if (cbData === 'ask_city') {
+      await send(env, cbChatId, 'Введи город командой:\n<code>/city Казань</code>');
+      return new Response('ok');
+    }
+
+    if (cbData === 'ask_niche') {
+      await send(env, cbChatId, 'Введи нишу командой:\n<code>/niche кафе</code>');
+      return new Response('ok');
+    }
+
+    return new Response('ok');
+  }
+
+  // ═══ ОБЫЧНЫЕ СООБЩЕНИЯ ═══
   var msg = body.message || body.edited_message;
   if (!msg) return new Response('ok');
 
@@ -185,10 +273,10 @@ export async function handleTelegramWebhook(request, env) {
   var text = (msg.text || '').trim();
   if (!text) return new Response('ok');
 
-  // Кнопки меню
+  // Кнопки reply-меню
   if (text === '⚙️ Настройки') text = '/settings';
   if (text === '🔍 Поиск') text = '/search';
-  if (text === '📊 Сводка') text = '/summary';
+  if (text === '📊 Сводка') text = '/summary on';
   if (text === '❓ Помощь') text = '/help';
 
   var user = await getChatId(chatId, env);
@@ -205,7 +293,8 @@ export async function handleTelegramWebhook(request, env) {
   if ((m = text.match(/^\/summary\s+(\S+)/i))) { await cmdSummary(chatId, user, [m[1]], env); return new Response('ok'); }
   if ((m = text.match(/^\/summaryhour\s+(\S+)/i))) { await cmdSummaryHour(chatId, user, [m[1]], env); return new Response('ok'); }
 
-  // Если просто текст без команды
+  if (text === '/summary') { await send(env, chatId, 'Использование: <code>/summary on</code> или <code>/summary off</code>'); return new Response('ok'); }
+
   if (!text.startsWith('/')) {
     await send(env, chatId, 'Не понимаю. Используй /help чтобы увидеть команды.', mainMenu());
   }
