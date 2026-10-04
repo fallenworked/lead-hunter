@@ -296,20 +296,47 @@
 
   function checkTelegramAuth(){
     if(!window.location.hash || window.location.hash.indexOf('tgAuthResult=') === -1) return;
+
+    function showDebug(msg){
+      var d = document.createElement('div');
+      d.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#000;color:#0f0;font-family:monospace;font-size:11px;padding:10px;z-index:99999;line-height:1.4;white-space:pre-wrap;max-height:80vh;overflow:auto';
+      d.textContent = msg;
+      document.body.appendChild(d);
+    }
+
     var data = decodeTelegramHash(window.location.hash);
-    if(!data || !data.id || !data.hash) return;
+    if(!data){ showDebug('Ошибка: не удалось декодировать данные из хэша\nhash=' + window.location.hash.slice(0, 100)); return; }
+    if(!data.id || !data.hash){ showDebug('Ошибка: в данных нет id или hash\n' + JSON.stringify(data).slice(0, 200)); return; }
+
+    showDebug('Отправляю на сервер:\nid=' + data.id + '\nusername=' + data.username + '\nhash=' + data.hash.slice(0, 20) + '...');
+
     var cleanUrl = window.location.origin + window.location.pathname;
     try { window.history.replaceState(null, '', cleanUrl); } catch(e){}
+
     fetch('/api/auth/telegram', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
-    }).then(function(r){ return r.json(); }).then(function(res){
-      if(res.error){ alert('Ошибка входа через Telegram: ' + res.error); return; }
-      closeAuth();
-      refreshMe().then(function(){ if(state.user) doSearch(); });
-    }).catch(function(e){
-      alert('Ошибка сети: ' + e.message);
+    })
+    .then(function(r){
+      return r.text().then(function(txt){
+        showDebug('Сервер ответил статус ' + r.status + '\n\nТело:\n' + txt.slice(0, 500));
+        try { return JSON.parse(txt); } catch(e){ return null; }
+      });
+    })
+    .then(function(res){
+      if(!res){ return; }
+      if(res.error){
+        showDebug('Ошибка оте сервера: ' + res.error);
+        return;
+      }
+      showDebug('Успех! Юзер: ' + (res.user ? res.user.email : '?') + '\n\nЗакрываю через 2 сек и обновляю...');
+      setTimeout(function(){
+        location.reload();
+      }, 2000);
+    })
+    .catch(function(e){
+      showDebug('Сетевая ошибка: ' + e.message);
     });
   }
 
