@@ -233,26 +233,9 @@
     }).catch(function(){ return null; });
   }
 
-  var authMode = 'login';
-  function openAuth(mode){
-    authMode = mode || 'login';
+  function openAuth(){
     var m = $('authModal');
     if(!m) return;
-    $('authMsg').textContent = '';
-    $('authMsg').className = 'modal-msg';
-    if(authMode === 'login'){
-      $('authTitle').textContent = 'Вход';
-      $('authSub').textContent = 'Войди чтобы искать клиентов';
-      $('authSubmit').textContent = 'Войти';
-      $('authSwitchText').textContent = 'Нет аккаунта?';
-      $('authSwitchLink').textContent = 'Регистрация';
-    } else {
-      $('authTitle').textContent = 'Регистрация';
-      $('authSub').textContent = 'Создай аккаунт - бесплатно';
-      $('authSubmit').textContent = 'Создать аккаунт';
-      $('authSwitchText').textContent = 'Уже есть аккаунт?';
-      $('authSwitchLink').textContent = 'Войти';
-    }
     closeDrawer();
     m.classList.add('show');
   }
@@ -421,7 +404,7 @@
     if(freeCta) freeCta.addEventListener('click', function(){
       if(freeCta.disabled) return;
       closePlans();
-      if(!state.user){ setTimeout(function(){ openAuth('register'); }, 250); }
+      if(!state.user){ setTimeout(openAuth, 250); }
     });
     window.addEventListener('resize', updatePlansSlider);
   }
@@ -437,7 +420,7 @@
   function openAI(){
     var m = $('aiModal');
     if(!m) return;
-    if(!state.user){ closeDrawer(); setTimeout(function(){ openAuth('login'); }, 200); return; }
+    if(!state.user){ closeDrawer(); setTimeout(openAuth, 200); return; }
     if(state.user.plan !== 'pro'){ closeDrawer(); setTimeout(function(){ alert('AI Агент доступен только в PRO.'); }, 250); return; }
     if(!aiHistory.length) aiHistory = aiLoadHistory();
     renderAIMessages();
@@ -485,7 +468,7 @@
 
   function sendAI(text){
     if(aiSending) return;
-    if(!state.user){ closeAI(); openAuth('login'); return; }
+    if(!state.user){ closeAI(); openAuth(); return; }
     if(state.user.plan !== 'pro'){ closeAI(); setTimeout(function(){ alert('AI доступен только в PRO'); }, 200); return; }
     text = (text || '').trim(); if(!text) return;
     aiSending = true;
@@ -500,7 +483,7 @@
         hideTyping();
         if(!res.ok){
           if(res.data.code === 'AI_LIMIT_REACHED') aiHistory.push({ role: 'assistant', content: 'Дневной лимит исчерпан. Возвращайся завтра.' });
-          else if(res.data.code === 'AUTH_REQUIRED'){ closeAI(); openAuth('login'); }
+          else if(res.data.code === 'AUTH_REQUIRED'){ closeAI(); openAuth(); }
           else if(res.data.code === 'PRO_REQUIRED'){ closeAI(); setTimeout(function(){ alert('AI Агент доступен только в PRO.'); }, 200); }
           else aiHistory.push({ role: 'assistant', content: 'Ошибка: ' + (res.data.error || 'не удалось получить ответ') });
         } else {
@@ -541,34 +524,6 @@
     });
   }
 
-  function submitAuth(){
-    var email = $('authEmail').value.trim();
-    var password = $('authPassword').value;
-    var msg = $('authMsg'), btn = $('authSubmit');
-    if(!email || !password){ msg.textContent = 'Заполни поля'; msg.className = 'modal-msg err'; return; }
-    btn.disabled = true;
-    msg.textContent = 'Отправка…'; msg.className = 'modal-msg';
-    var endpoint = authMode === 'login' ? '/api/auth/login' : '/api/auth/register';
-    fetch(endpoint, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email: email, password: password }) })
-      .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, data: d }; }); })
-      .then(function(res){
-        btn.disabled = false;
-        if(!res.ok){ msg.textContent = res.data.error || 'Ошибка'; msg.className = 'modal-msg err'; return; }
-        state.user = res.data.user;
-        state.limit = res.data.limit || 3;
-        state.resultLimit = res.data.result_limit || 10;
-        if(state.user.plan === 'pro'){ loadFavorites(); }
-        updateNavUI();
-        msg.textContent = 'Готово!'; msg.className = 'modal-msg ok';
-        setTimeout(function(){ closeAuth(); doSearch(); }, 400);
-      })
-      .catch(function(e){
-        btn.disabled = false;
-        msg.textContent = 'Ошибка сети: ' + e.message;
-        msg.className = 'modal-msg err';
-      });
-  }
-
   function logout(){
     fetch('/api/auth/logout', { method: 'POST' }).then(function(){
       state.user = null; state.leads = []; state.lastTotal = 0; state.favorites = [];
@@ -593,7 +548,7 @@
   function doSearch(){
     var cityEl = $('city'), nicheEl = $('niche');
     if(!cityEl || !nicheEl) return;
-    if(!state.user){ openAuth('login'); return; }
+    if(!state.user){ openAuth(); return; }
     var city = cityEl.value.trim(), niche = nicheEl.value.trim();
     if(!city || !niche){ alert('Заполни город и нишу'); return; }
     state.city = city; state.niche = niche;
@@ -608,7 +563,7 @@
     fetch('/api/locate?city=' + encodeURIComponent(city) + '&niche=' + encodeURIComponent(niche))
       .then(function(r){ return r.json().then(function(d){ return { status: r.status, data: d }; }); })
       .then(function(res){
-        if(res.data.code === 'AUTH_REQUIRED'){ openAuth('login'); throw new Error('__AUTH__'); }
+        if(res.data.code === 'AUTH_REQUIRED'){ openAuth(); throw new Error('__AUTH__'); }
         if(res.data.code === 'LIMIT_REACHED'){ showLimitReached(); throw new Error('__LIMIT__'); }
         if(res.data.error) throw new Error(res.data.error);
         locData = res.data;
@@ -704,7 +659,7 @@
   function openHistory(){
     closeDrawer();
     setTimeout(function(){
-      if(!state.user){ openAuth('login'); return; }
+      if(!state.user){ openAuth(); return; }
       if(state.user.plan !== 'pro'){ alert('История поиска доступна только в PRO.'); return; }
       var m = $('histModal'); if(!m) return;
       m.classList.add('show'); loadHistory();
@@ -759,7 +714,7 @@
   function openFavorites(){
     closeDrawer();
     setTimeout(function(){
-      if(!state.user){ openAuth('login'); return; }
+      if(!state.user){ openAuth(); return; }
       if(state.user.plan !== 'pro'){ alert('Избранное доступно только в PRO.'); return; }
       var m = $('favModal'); if(!m) return;
       m.classList.add('show'); renderFavorites();
@@ -839,7 +794,7 @@
   function openProfile(){
     closeDrawer();
     setTimeout(function(){
-      if(!state.user){ openAuth('login'); return; }
+      if(!state.user){ openAuth(); return; }
       var m = $('profModal'); if(!m) return;
       var initial = state.user.email.charAt(0).toUpperCase();
       $('profAvatar').textContent = initial;
@@ -847,50 +802,24 @@
       var badge = $('profBadge');
       badge.textContent = state.user.plan === 'pro' ? 'PRO' : 'FREE';
       badge.className = 'prof-badge' + (state.user.plan === 'pro' ? ' pro' : '');
-      $('profCurrent').value = ''; $('profNew').value = ''; $('profRepeat').value = '';
-      $('profMsg').textContent = ''; $('profMsg').className = 'prof-msg';
       $('profDeleteForm').style.display = 'none';
-      $('profDeleteConfirm').value = ''; $('profDeletePassword').value = '';
+      $('profDeleteConfirm').value = '';
       m.classList.add('show');
     }, 250);
   }
   function closeProfile(){ var m = $('profModal'); if(m) m.classList.remove('show'); }
 
-  function changePassword(){
-    var current = $('profCurrent').value, newPass = $('profNew').value, repeat = $('profRepeat').value;
-    var msg = $('profMsg'), btn = $('profSave');
-    if(!current || !newPass || !repeat){ msg.textContent = 'Заполни все поля'; msg.className = 'prof-msg err'; return; }
-    if(newPass.length < 6){ msg.textContent = 'Пароль минимум 6 символов'; msg.className = 'prof-msg err'; return; }
-    if(newPass !== repeat){ msg.textContent = 'Пароли не совпадают'; msg.className = 'prof-msg err'; return; }
-    if(current === newPass){ msg.textContent = 'Новый пароль совпадает со старым'; msg.className = 'prof-msg err'; return; }
-    btn.disabled = true;
-    msg.textContent = 'Сохранение…'; msg.className = 'prof-msg';
-    fetch('/api/profile/password', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ current_password: current, new_password: newPass }) })
-      .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, data: d }; }); })
-      .then(function(res){
-        btn.disabled = false;
-        if(!res.ok){ msg.textContent = res.data.error || 'Ошибка'; msg.className = 'prof-msg err'; return; }
-        msg.textContent = '✓ Пароль обновлён'; msg.className = 'prof-msg ok';
-        $('profCurrent').value = ''; $('profNew').value = ''; $('profRepeat').value = '';
-        setTimeout(function(){ msg.textContent = ''; }, 3000);
-      })
-      .catch(function(e){ btn.disabled = false; msg.textContent = 'Ошибка сети: ' + e.message; msg.className = 'prof-msg err'; });
-  }
-
   function deleteAccount(){
     var confirmText = $('profDeleteConfirm').value.trim();
-    var password = $('profDeletePassword').value;
-    var btn = $('profDeleteFinal'), msg = $('profMsg');
-    if(confirmText !== 'УДАЛИТЬ'){ msg.textContent = 'Введи слово УДАЛИТЬ точно'; msg.className = 'prof-msg err'; return; }
-    if(!password){ msg.textContent = 'Нужен пароль'; msg.className = 'prof-msg err'; return; }
+    var btn = $('profDeleteFinal');
+    if(confirmText !== 'УДАЛИТЬ'){ alert('Введи слово УДАЛИТЬ точно'); return; }
     if(!confirm('Это действие нельзя отменить. Продолжить?')) return;
     btn.disabled = true;
-    msg.textContent = 'Удаление…'; msg.className = 'prof-msg';
-    fetch('/api/profile/delete', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ confirm: confirmText, password: password }) })
+    fetch('/api/profile/delete', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ confirm: confirmText, password: 'oauth' }) })
       .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, data: d }; }); })
       .then(function(res){
         btn.disabled = false;
-        if(!res.ok){ msg.textContent = res.data.error || 'Ошибка'; msg.className = 'prof-msg err'; return; }
+        if(!res.ok){ alert(res.data.error || 'Ошибка'); return; }
         alert('Аккаунт удалён');
         state.user = null; state.favorites = []; state.leads = [];
         closeProfile(); updateNavUI();
@@ -898,18 +827,17 @@
         var infoEl = $('info');
         if(infoEl) infoEl.textContent = 'Введи город и нишу, нажми «Найти клиентов»';
       })
-      .catch(function(e){ btn.disabled = false; msg.textContent = 'Ошибка сети: ' + e.message; msg.className = 'prof-msg err'; });
+      .catch(function(e){ btn.disabled = false; alert('Ошибка сети: ' + e.message); });
   }
 
   function bindProfile(){
-    var bg = $('profBg'), close = $('profClose'), saveBtn = $('profSave');
+    var bg = $('profBg'), close = $('profClose');
     var delToggle = $('profDeleteToggle'), delForm = $('profDeleteForm');
     var delFinal = $('profDeleteFinal'), delCancel = $('profDeleteCancel');
     if(bg) bg.addEventListener('click', closeProfile);
     if(close) close.addEventListener('click', closeProfile);
-    if(saveBtn) saveBtn.addEventListener('click', changePassword);
     if(delToggle) delToggle.addEventListener('click', function(){ delForm.style.display = delForm.style.display === 'none' ? 'block' : 'none'; });
-    if(delCancel) delCancel.addEventListener('click', function(){ delForm.style.display = 'none'; $('profDeleteConfirm').value = ''; $('profDeletePassword').value = ''; });
+    if(delCancel) delCancel.addEventListener('click', function(){ delForm.style.display = 'none'; $('profDeleteConfirm').value = ''; });
     if(delFinal) delFinal.addEventListener('click', deleteAccount);
   }
 
@@ -981,7 +909,7 @@
   }
 
   function handleAction(action){
-    if(action === 'login'){ closeDrawer(); setTimeout(function(){ openAuth('login'); }, 250); return; }
+    if(action === 'login'){ closeDrawer(); setTimeout(openAuth, 250); return; }
     if(action === 'logout'){ logout(); return; }
     if(action === 'plans'){ openPlans(); return; }
     if(action === 'ai'){ openAI(); return; }
@@ -1011,11 +939,10 @@
     var navLogin = $('navLogin');
     var burger = $('burger'), drawerBg = $('drawerBg'), drawerClose = $('drawerClose');
     var authClose = $('authModalClose'), authBg = $('authModalBg');
-    var authForm = $('authForm'), authSwitch = $('authSwitchLink');
     var drawerNav = $('drawerNav');
     var oauthGoogle = $('oauthGoogle');
     var oauthTelegram = $('oauthTelegram');
-    if(navLogin) navLogin.addEventListener('click', function(){ openAuth('login'); });
+    if(navLogin) navLogin.addEventListener('click', openAuth);
     if(burger) burger.addEventListener('click', function(){
       var d = $('drawer');
       if(d.classList.contains('show')) closeDrawer(); else openDrawer();
@@ -1031,8 +958,6 @@
     });
     if(authClose) authClose.addEventListener('click', closeAuth);
     if(authBg) authBg.addEventListener('click', closeAuth);
-    if(authForm) authForm.addEventListener('submit', submitAuth);
-    if(authSwitch) authSwitch.addEventListener('click', function(){ openAuth(authMode === 'login' ? 'register' : 'login'); });
     if(oauthGoogle) oauthGoogle.addEventListener('click', startGoogleAuth);
     if(oauthTelegram) oauthTelegram.addEventListener('click', startTelegramAuth);
     document.addEventListener('keydown', function(e){
