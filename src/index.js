@@ -5,9 +5,14 @@ import scriptJs from './script.js';
 import { handleChat, handleAILimit } from './ai.js';
 import { termsPage, privacyPage, refundPage, offerPage } from './legal.js';
 import { handleTelegramAuth } from './telegram.js';
+import { runAutosearch } from './auto.js';
 import { handleGoogleStart, handleGoogleCallback } from './google.js';
 
 export default {
+    async scheduled(event, env, ctx) {
+    ctx.waitUntil(runAutosearch(env));
+  },
+  
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname === '/style.css') return new Response(styleCss, { headers: { 'Content-Type': 'text/css; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
