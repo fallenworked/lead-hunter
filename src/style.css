@@ -436,3 +436,6 @@ footer{margin-top:100px;padding-top:32px;border-top:1px solid var(--border);disp
   footer{flex-direction:column;align-items:center;text-align:center;margin-top:60px}
   .footer-links{justify-content:center}
 }
+.auth-terms{font-size:11.5px;color:var(--muted);text-align:center;margin-top:20px;line-height:1.55}
+.auth-terms a{color:var(--silver);text-decoration:underline;text-underline-offset:2px}
+.auth-terms a:hover{color:var(--white)}
