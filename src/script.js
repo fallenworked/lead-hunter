@@ -233,6 +233,16 @@
     }).catch(function(){ return null; });
   }
 
+    function applyDefaults(){
+    if(!state.user) return;
+    fetch('/api/settings').then(function(r){ return r.json(); }).then(function(d){
+      if(!d.settings) return;
+      var c = $('city'), n = $('niche');
+      if(c && d.settings.default_city) c.value = d.settings.default_city;
+      if(n && d.settings.default_niche) n.value = d.settings.default_niche;
+    }).catch(function(){});
+  }
+  
   function openAuth(){
     var m = $('authModal');
     if(!m) return;
@@ -342,6 +352,95 @@
     setTimeout(function(){ m.classList.add('show'); }, 200);
   }
   function closePay(){ var m = $('payModal'); if(m) m.classList.remove('show'); }
+
+    function openSettings(){
+    closeDrawer();
+    setTimeout(function(){
+      if(!state.user){ openAuth(); return; }
+      var m = $('settModal'); if(!m) return;
+      $('settMsg').textContent = ''; $('settMsg').className = 'sett-msg';
+      fetch('/api/settings').then(function(r){ return r.json(); }).then(function(d){
+        if(!d.settings){ return; }
+        $('settCity').value = d.settings.default_city || '';
+        $('settNiche').value = d.settings.default_niche || '';
+        $('settChatId').value = d.settings.telegram_chat_id || '';
+        $('settNotifyTg').checked = !!d.settings.notify_tg;
+        $('settNotifyEmail').checked = !!d.settings.notify_email;
+        $('settAutosearch').checked = !!d.settings.autosearch_enabled;
+      }).catch(function(){});
+      m.classList.add('show');
+    }, 250);
+  }
+  function closeSettings(){ var m = $('settModal'); if(m) m.classList.remove('show'); }
+
+  function saveSettings(){
+    var btn = $('settSave'), msg = $('settMsg');
+    btn.disabled = true;
+    msg.textContent = 'Сохранение…'; msg.className = 'sett-msg';
+    fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'save',
+        default_city: $('settCity').value.trim(),
+        default_niche: $('settNiche').value.trim(),
+        telegram_chat_id: $('settChatId').value.trim(),
+        notify_tg: $('settNotifyTg').checked,
+        notify_email: $('settNotifyEmail').checked,
+        autosearch_enabled: $('settAutosearch').checked
+      })
+    }).then(function(r){ return r.json(); }).then(function(d){
+      btn.disabled = false;
+      if(d.error){ msg.textContent = d.error; msg.className = 'sett-msg err'; return; }
+      msg.textContent = '✓ Сохранено'; msg.className = 'sett-msg ok';
+      setTimeout(function(){ msg.textContent = ''; }, 2500);
+    }).catch(function(e){ btn.disabled = false; msg.textContent = 'Ошибка сети'; msg.className = 'sett-msg err'; });
+  }
+
+  function clearHistory(){
+    if(!confirm('Удалить всю историю поиска?')) return;
+    var msg = $('settMsg');
+    fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action: 'clear_history' }) })
+      .then(function(r){ return r.json(); }).then(function(d){
+        msg.textContent = d.ok ? '✓ История очищена' : 'Ошибка';
+        msg.className = 'sett-msg ' + (d.ok ? 'ok' : 'err');
+        setTimeout(function(){ msg.textContent = ''; }, 2500);
+      }).catch(function(){});
+  }
+
+  function clearFavorites(){
+    if(!confirm('Удалить всё из избранного?')) return;
+    var msg = $('settMsg');
+    fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action: 'clear_favorites' }) })
+      .then(function(r){ return r.json(); }).then(function(d){
+        if(d.ok){ state.favorites = []; render(); }
+        msg.textContent = d.ok ? '✓ Избранное очищено' : 'Ошибка';
+        msg.className = 'sett-msg ' + (d.ok ? 'ok' : 'err');
+        setTimeout(function(){ msg.textContent = ''; }, 2500);
+      }).catch(function(){});
+  }
+
+  function exportData(){
+    fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action: 'export' }) })
+      .then(function(r){ return r.json(); }).then(function(d){
+        var blob = new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' });
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'leadhunter_export_' + Date.now() + '.json';
+        a.click();
+      }).catch(function(){});
+  }
+
+  function bindSettings(){
+    var bg = $('settBg'), close = $('settClose'), save = $('settSave');
+    var exp = $('settExport'), clrH = $('settClearHistory'), clrF = $('settClearFav');
+    if(bg) bg.addEventListener('click', closeSettings);
+    if(close) close.addEventListener('click', closeSettings);
+    if(save) save.addEventListener('click', saveSettings);
+    if(exp) exp.addEventListener('click', exportData);
+    if(clrH) clrH.addEventListener('click', clearHistory);
+    if(clrF) clrF.addEventListener('click', clearFavorites);
+  }
 
   function bindPay(){
     var bg = $('payBg'), close = $('payClose'), cta = $('payCta');
@@ -943,7 +1042,7 @@
     if(action === 'history'){ openHistory(); return; }
     if(action === 'profile'){ openProfile(); return; }
     if(action === 'tutorial'){ forceOnboarding(); return; }
-    if(action === 'settings'){ closeDrawer(); setTimeout(function(){ alert('Настройки в разработке'); }, 250); return; }
+    if(action === 'settings'){ openSettings(); return; }
     if(action === 'support'){ closeDrawer(); setTimeout(function(){ alert('Поддержка: @leadhunter_support'); }, 250); return; }
     if(action === 'about'){ closeDrawer(); setTimeout(function(){ alert('Lead Hunter - поиск бизнесов без сайта.\nДанные OpenStreetMap.\nВерсия 1.0'); }, 250); return; }
   }
@@ -987,13 +1086,14 @@
     if(oauthGoogle) oauthGoogle.addEventListener('click', startGoogleAuth);
     if(oauthTelegram) oauthTelegram.addEventListener('click', startTelegramAuth);
     document.addEventListener('keydown', function(e){
-      if(e.key === 'Escape'){ closeAuth(); closePlans(); closePay(); closeAI(); closeDrawer(); closeHistory(); closeFavorites(); closeProfile(); }
+        if(e.key === 'Escape'){ closeAuth(); closePlans(); closePay(); closeSettings(); closeAI(); closeDrawer(); closeHistory(); closeFavorites(); closeProfile(); }
     });
   }
 
-  bind();
+    bind();
   bindPlans();
   bindPay();
+  bindSettings();
   bindAI();
   bindHistory();
   bindFavorites();
@@ -1002,7 +1102,7 @@
   renderPresets();
 
   preload().then(function(){
-    refreshMe();
+    refreshMe().then(function(){ setTimeout(applyDefaults, 200); });
     setTimeout(function(){
       try { checkTelegramAuth(); } catch(e){ console.error('checkTelegramAuth err', e); }
     }, 100);
