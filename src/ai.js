@@ -1,6 +1,13 @@
 const PRO_AI_LIMIT = 100;
 
-const SYSTEM_PROMPT = 'Ты — AI-ассистент сервиса Lead Hunter. Сервис помогает находить бизнесы без сайта по городу и нише, чтобы продавать им услуги (создание сайтов, реклама, SEO). Твоя задача — помогать пользователю: 1) составлять скрипты холодных звонков и сообщений; 2) придумывать аргументы, почему бизнесу нужен сайт; 3) писать коммерческие предложения; 4) отвечать на возражения. Отвечай кратко, по делу, на русском. Без воды и длинных вступлений. Давай конкретные фразы, которые можно использовать сразу. Используй короткие абзацы, списки, выделяй ключевые фразы жирным.';
+const BASE_SYSTEM_PROMPT = 'Ты — AI-ассистент сервиса Lead Hunter. Сервис помогает находить бизнесы без сайта по городу и нише, чтобы продавать им услуги (создание сайтов, реклама, SEO). Твоя задача — помогать пользователю: 1) составлять скрипты холодных звонков и сообщений; 2) придумывать аргументы, почему бизнесу нужен сайт; 3) писать коммерческие предложения; 4) отвечать на возражения. Отвечай кратко, по делу, на русском. Без воды и длинных вступлений. Давай конкретные фразы, которые можно использовать сразу. Используй короткие абзацы, списки, выделяй ключевые фразы жирным.';
+
+const STYLE_PROMPTS = {
+  business: 'Стиль общения: деловой, чёткий, нейтральный. Без эмодзи.',
+  friendly: 'Стиль общения: дружеский, тёплый, но без панибратства. Можно лёгкие эмодзи.',
+  direct: 'Стиль общения: максимально прямо, без воды, только факты. Короткие абзацы.',
+  selling: 'Стиль общения: активный продающий, с акцентом на выгоду клиента и призывами к действию.'
+};
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -41,13 +48,33 @@ async function getSession(request, env) {
   if (!token) return null;
   var now = Date.now();
   var row = await env.DB.prepare(
-    'SELECT s.token, s.user_id, s.expires_at, u.email, u.plan, u.ai_messages_today, u.ai_last_date FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ? AND s.expires_at > ?'
+    'SELECT s.token, s.user_id, s.expires_at, u.email, u.plan, u.ai_messages_today, u.ai_last_date, u.default_city, u.default_niche, u.ai_style FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ? AND s.expires_at > ?'
   ).bind(token, now).first();
   if (!row) return null;
   return { token: token, user: row };
 }
 
-async function callGemini(messages, env) {
+function buildSystemPrompt(userContext) {
+  var parts = [BASE_SYSTEM_PROMPT];
+
+  if (userContext) {
+    var ctxLines = [];
+    if (userContext.city) ctxLines.push('Город: ' + userContext.city);
+    if (userContext.niche) ctxLines.push('Ниша: ' + userContext.niche);
+    if (userContext.favoritesCount) ctxLines.push('В избранном лидов: ' + userContext.favoritesCount);
+    if (ctxLines.length) {
+      parts.push('\nКОНТЕКСТ ПОЛЬЗОВАТЕЛЯ:\n' + ctxLines.join('\n') + '\nУчитывай этот контекст — не предлагай действия для других городов и ниш.');
+    }
+    var styleKey = userContext.style || 'business';
+    parts.push('\n' + (STYLE_PROMPTS[styleKey] || STYLE_PROMPTS.business));
+  } else {
+    parts.push('\n' + STYLE_PROMPTS.business);
+  }
+
+  return parts.join('\n');
+}
+
+async function callGemini(messages, env, systemPrompt) {
   var key = env.GEMINI_API_KEY;
   if (!key) throw new Error('GEMINI_API_KEY не задан');
 
@@ -61,13 +88,13 @@ async function callGemini(messages, env) {
     });
   }
 
-  var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=' + key;
+  var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + key;
   var r = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       contents: contents,
-      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      systemInstruction: { parts: [{ text: systemPrompt }] },
       generationConfig: { temperature: 0.8, maxOutputTokens: 1200 }
     })
   });
@@ -88,11 +115,11 @@ async function callGemini(messages, env) {
   return { text: text.trim(), provider: 'gemini' };
 }
 
-async function callDeepSeek(messages, env) {
+async function callDeepSeek(messages, env, systemPrompt) {
   var key = env.DEEPSEEK_API_KEY;
   if (!key) throw new Error('DEEPSEEK_API_KEY не задан');
 
-  var msgs = [{ role: 'system', content: SYSTEM_PROMPT }];
+  var msgs = [{ role: 'system', content: systemPrompt }];
   for (var i = 0; i < messages.length; i++) {
     if (messages[i].role === 'system') continue;
     msgs.push({ role: messages[i].role, content: String(messages[i].content) });
@@ -124,13 +151,13 @@ async function callDeepSeek(messages, env) {
   return { text: text.trim(), provider: 'deepseek' };
 }
 
-async function callAI(messages, env) {
+async function callAI(messages, env, systemPrompt) {
   try {
-    return await callGemini(messages, env);
+    return await callGemini(messages, env, systemPrompt);
   } catch (e) {
     console.error('Gemini failed:', e.message);
     try {
-      return await callDeepSeek(messages, env);
+      return await callDeepSeek(messages, env, systemPrompt);
     } catch (e2) {
       console.error('DeepSeek failed:', e2.message);
       throw new Error('AI недоступен. Попробуй позже.');
@@ -178,6 +205,14 @@ export async function handleChat(request, env) {
   if (!messages.length) return json({ error: 'нет сообщений' }, 400);
   if (messages.length > 20) messages = messages.slice(-20);
 
+  // Валидация длины и типов
+  var totalLen = 0;
+  for (var mi = 0; mi < messages.length; mi++) {
+    if (typeof messages[mi].content !== 'string') continue;
+    totalLen += messages[mi].content.length;
+  }
+  if (totalLen > 8000) return json({ error: 'слишком длинный запрос (макс. 8000 символов)' }, 400);
+
   var todayStr = today();
   var used = u.ai_last_date === todayStr ? (u.ai_messages_today || 0) : 0;
 
@@ -190,12 +225,41 @@ export async function handleChat(request, env) {
     }, 429);
   }
 
+  // Atomic-инкремент лимита ДО вызова AI.
+  // Если лимит исчерпан между проверкой и апдейтом — changes = 0.
+  var reserve = await env.DB.prepare(
+    'UPDATE users SET ' +
+    'ai_messages_today = CASE WHEN ai_last_date = ?1 THEN ai_messages_today + 1 ELSE 1 END, ' +
+    'ai_last_date = ?1 ' +
+    'WHERE id = ?2 AND (ai_last_date != ?1 OR ai_messages_today < ?3)'
+  ).bind(todayStr, u.user_id, PRO_AI_LIMIT).run();
+
+  if (!reserve.meta || reserve.meta.changes === 0) {
+    return json({
+      error: 'Дневной лимит AI-сообщений исчерпан',
+      code: 'AI_LIMIT_REACHED',
+      used: PRO_AI_LIMIT,
+      limit: PRO_AI_LIMIT
+    }, 429);
+  }
+
+  // Контекст пользователя
+  var favsCount = await env.DB.prepare(
+    'SELECT COUNT(*) as cnt FROM favorites WHERE user_id = ?'
+  ).bind(u.user_id).first();
+
+  var userContext = {
+    city: u.default_city || '',
+    niche: u.default_niche || '',
+    style: u.ai_style || 'business',
+    favoritesCount: (favsCount && favsCount.cnt) || 0
+  };
+
+  var systemPrompt = buildSystemPrompt(userContext);
+
   try {
-    var result = await callAI(messages, env);
+    var result = await callAI(messages, env, systemPrompt);
     var newUsed = used + 1;
-    await env.DB.prepare(
-      'UPDATE users SET ai_messages_today = ?, ai_last_date = ? WHERE id = ?'
-    ).bind(newUsed, todayStr, u.user_id).run();
 
     return json({
       ok: true,
@@ -206,6 +270,12 @@ export async function handleChat(request, env) {
       remaining: Math.max(0, PRO_AI_LIMIT - newUsed)
     });
   } catch (e) {
-    return json({ error: e.message }, 500);
+    // При ошибке AI возвращаем счётчик назад
+    try {
+      await env.DB.prepare(
+        'UPDATE users SET ai_messages_today = CASE WHEN ai_messages_today > 0 THEN ai_messages_today - 1 ELSE 0 END WHERE id = ? AND ai_last_date = ?'
+      ).bind(u.user_id, todayStr).run();
+    } catch (rollbackErr) {}
+    return json({ error: e.message || 'AI недоступен' }, 500);
   }
 }
