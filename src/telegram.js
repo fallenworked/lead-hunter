@@ -65,9 +65,49 @@ export async function handleTelegramAuth(request, env) {
   if (!isValid) return json({ error: 'неверная подпись' }, 401);
 
   var authDate = parseInt(data.auth_date, 10);
-  if (Date.now() / 1000 - authDate > 300) {
+  if (isNaN(authDate) || Math.abs(Date.now() / 1000 - authDate) > 300) {
     return json({ error: 'данные устарели, попробуй снова' }, 401);
   }
+
+  var telegramId = data.id;
+  var username = data.username || '';
+  var photoUrl = data.photo_url || '';
+  var firstName = data.first_name || '';
+
+  var user = await env.DB.prepare(
+    'SELECT id, email, plan FROM users WHERE telegram_id = ?'
+  ).bind(telegramId).first();
+
+  var now = Date.now();
+
+  if (!user) {
+    var placeholderEmail = 'tg_' + telegramId + '@lead-hunter.local';
+    var salt = randomHex(16);
+    var fakeHash = randomHex(64);
+
+    var res = await env.DB.prepare(
+      'INSERT INTO users (email, password_hash, salt, created_at, plan, telegram_id, telegram_chat_id, telegram_username, telegram_photo_url, auth_provider) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).bind(placeholderEmail, fakeHash, salt, now, 'free', telegramId, telegramId, username, photoUrl, 'telegram').run();
+
+    user = { id: res.meta.last_row_id, email: placeholderEmail, plan: 'free' };
+  } else {
+    await env.DB.prepare(
+      'UPDATE users SET telegram_chat_id = ?, telegram_username = ?, telegram_photo_url = ? WHERE id = ?'
+    ).bind(telegramId, username, photoUrl, user.id).run();
+  }
+
+  var token = randomHex(32);
+  var expires = now + SESSION_DAYS * 24 * 60 * 60 * 1000;
+
+  await env.DB.prepare(
+    'INSERT INTO sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)'
+  ).bind(token, user.id, now, expires).run();
+
+  return json({
+    ok: true,
+    user: { id: user.id, email: user.email, plan: user.plan, first_name: firstName }
+  }, 200, { 'Set-Cookie': sessionCookie(token, SESSION_DAYS * 24 * 60 * 60) });
+}
 
   var telegramId = data.id;
   var username = data.username || '';
