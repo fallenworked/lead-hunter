@@ -279,3 +279,124 @@ export async function handleChat(request, env) {
     return json({ error: e.message || 'AI недоступен' }, 500);
   }
 }
+// ═══ AI LEAD SCRIPT (персональный скрипт под конкретного лида) ═══
+export async function handleLeadScript(request, env) {
+  if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
+  if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405);
+
+  var session = await getSession(request, env);
+  if (!session) return json({ error: 'нужен вход', code: 'AUTH_REQUIRED' }, 401);
+
+  var u = session.user;
+  if (u.plan !== 'pro') {
+    return json({ error: 'AI-скрипты доступны только в PRO', code: 'PRO_REQUIRED' }, 403);
+  }
+
+  var body;
+  try { body = await request.json(); }
+  catch (e) { return json({ error: 'некорректный JSON' }, 400); }
+
+  var leadName = String(body.name || '').trim().slice(0, 200);
+  var leadAddr = String(body.addr || '').trim().slice(0, 200);
+  var leadPhone = String(body.phone || '').trim().slice(0, 50);
+  var leadType = String(body.type || '').trim().slice(0, 50);
+  var leadOpening = String(body.opening || '').trim().slice(0, 100);
+  var city = String(body.city || '').trim().slice(0, 100);
+  var niche = String(body.niche || '').trim().slice(0, 100);
+
+  if (!leadName || !city || !niche) {
+    return json({ error: 'нужны name, city, niche' }, 400);
+  }
+
+  // Проверяем кэш
+  var cached = await env.DB.prepare(
+    'SELECT script FROM ai_scripts WHERE user_id = ? AND lead_name = ? AND city = ? AND niche = ?'
+  ).bind(u.user_id, leadName, city, niche).first();
+
+  if (cached && cached.script) {
+    return json({ ok: true, script: cached.script, cached: true });
+  }
+
+  // Лимит AI (тот же счётчик, что и чат)
+  var todayStr = today();
+  var used = u.ai_last_date === todayStr ? (u.ai_messages_today || 0) : 0;
+  if (used >= PRO_AI_LIMIT) {
+    return json({ error: 'Дневной лимит AI исчерпан', code: 'AI_LIMIT_REACHED' }, 429);
+  }
+
+  // Атомарный инкремент лимита
+  var reserve = await env.DB.prepare(
+    'UPDATE users SET ' +
+    'ai_messages_today = CASE WHEN ai_last_date = ?1 THEN ai_messages_today + 1 ELSE 1 END, ' +
+    'ai_last_date = ?1 ' +
+    'WHERE id = ?2 AND (ai_last_date != ?1 OR ai_messages_today < ?3)'
+  ).bind(todayStr, u.user_id, PRO_AI_LIMIT).run();
+
+  if (!reserve.meta || reserve.meta.changes === 0) {
+    return json({ error: 'Дневной лимит AI исчерпан', code: 'AI_LIMIT_REACHED' }, 429);
+  }
+
+  // Собираем промпт
+  var styleKey = u.ai_style || 'business';
+  var styleHint = STYLE_PROMPTS[styleKey] || STYLE_PROMPTS.business;
+
+  var prompt =
+    'Составь персональный скрипт холодного звонка для продажи услуги «разработка сайта».\n\n' +
+    'ИНФОРМАЦИЯ О ЛИДЕ:\n' +
+    '- Название: ' + leadName + '\n' +
+    (leadType ? '- Тип бизнеса: ' + leadType + '\n' : '') +
+    (leadAddr ? '- Адрес: ' + leadAddr + '\n' : '') +
+    (leadPhone ? '- Телефон: ' + leadPhone + '\n' : '') +
+    (leadOpening ? '- Часы работы: ' + leadOpening + '\n' : '') +
+    '- Город: ' + city + '\n' +
+    '- Ниша: ' + niche + '\n' +
+    '- У бизнеса НЕТ своего сайта.\n\n' +
+    'КОНТЕКСТ ПРОДАВЦА:\n' +
+    '- Город продавца: ' + (u.default_city || city) + '\n' +
+    '- Основная ниша: ' + (u.default_niche || niche) + '\n' +
+    '- ' + styleHint + '\n\n' +
+    'ТРЕБОВАНИЯ К СКРИПТУ:\n' +
+    '- НЕ используй общие фразы типа «добрый день, меня зовут».\n' +
+    '- Начни с конкретной детали о бизнесе (адрес, ниша, отсутствие сайта, годы работы).\n' +
+    '- Структура: цепляющее открытие → квалификация → презентация → закрытие на встречу.\n' +
+    '- Живые фразы, которые можно сразу говорить.\n' +
+    '- Ответы на 3 типовых возражения («нет денег», «уже есть соцсети», «мне не надо»).\n' +
+    '- До 500 слов.\n' +
+    '- Русский язык.';
+
+  // Отправляем в Gemini (fallback DeepSeek)
+  var systemPrompt = 'Ты — эксперт по B2B-продажам в веб-разработке. Твои скрипты конкретные, работают в реальности, без воды.';
+
+  try {
+    var result = await callAI([{ role: 'user', content: prompt }], env, systemPrompt);
+    var scriptText = result.text;
+
+    // Кэшируем
+    try {
+      await env.DB.prepare(
+        'INSERT OR REPLACE INTO ai_scripts (user_id, lead_name, city, niche, script, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+      ).bind(u.user_id, leadName, city, niche, scriptText, Date.now()).run();
+    } catch (e) {
+      console.error('cache save failed', e.message);
+    }
+
+    var newUsed = used + 1;
+    return json({
+      ok: true,
+      script: scriptText,
+      cached: false,
+      provider: result.provider,
+      used: newUsed,
+      limit: PRO_AI_LIMIT,
+      remaining: Math.max(0, PRO_AI_LIMIT - newUsed)
+    });
+  } catch (e) {
+    // Откатываем лимит при ошибке
+    try {
+      await env.DB.prepare(
+        'UPDATE users SET ai_messages_today = CASE WHEN ai_messages_today > 0 THEN ai_messages_today - 1 ELSE 0 END WHERE id = ? AND ai_last_date = ?'
+      ).bind(u.user_id, todayStr).run();
+    } catch (rollbackErr) {}
+    return json({ error: e.message || 'AI недоступен' }, 500);
+  }
+}
