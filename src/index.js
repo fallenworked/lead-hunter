@@ -29,6 +29,7 @@ export default {
     if (url.pathname === '/api/favorites/remove') return handleFavRemove(request, env);
     if (url.pathname === '/api/profile/password') return handleChangePassword(request, env);
     if (url.pathname === '/api/profile/delete') return handleDeleteAccount(request, env);
+    if (url.pathname === '/api/settings') return handleSettings(request, env);
     if (url.pathname === '/terms') return new Response(termsPage(), { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=86400' } });
     if (url.pathname === '/privacy') return new Response(privacyPage(), { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=86400' } });
     if (url.pathname === '/refund') return new Response(refundPage(), { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=86400' } });
@@ -410,4 +411,74 @@ async function handleDeleteAccount(request, env) {
   await env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(uid).run();
   await env.DB.prepare('DELETE FROM users WHERE id = ?').bind(uid).run();
   return json({ ok: true, message: 'Аккаунт удалён' }, 200, { 'Set-Cookie': 'session=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0' });
+}
+async function handleSettings(request, env) {
+  if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
+  var session = await getSession(request, env);
+  if (!session) return json({ error: 'нужен вход', code: 'AUTH_REQUIRED' }, 401);
+  var u = session.user;
+
+  if (request.method === 'GET') {
+    var row = await env.DB.prepare(
+      'SELECT default_city, default_niche, telegram_chat_id, notify_tg, notify_email, autosearch_enabled FROM users WHERE id = ?'
+    ).bind(u.user_id).first();
+    return json({
+      settings: {
+        default_city: row.default_city || '',
+        default_niche: row.default_niche || '',
+        telegram_chat_id: row.telegram_chat_id || '',
+        notify_tg: !!row.notify_tg,
+        notify_email: !!row.notify_email,
+        autosearch_enabled: !!row.autosearch_enabled
+      }
+    });
+  }
+
+  if (request.method === 'POST') {
+    var body;
+    try { body = await request.json(); }
+    catch (e) { return json({ error: 'некорректный JSON' }, 400); }
+
+    var action = String(body.action || '');
+
+    if (action === 'save') {
+      await env.DB.prepare(
+        'UPDATE users SET default_city = ?, default_niche = ?, telegram_chat_id = ?, notify_tg = ?, notify_email = ?, autosearch_enabled = ? WHERE id = ?'
+      ).bind(
+        String(body.default_city || '').slice(0, 100),
+        String(body.default_niche || '').slice(0, 100),
+        String(body.telegram_chat_id || '').slice(0, 50),
+        body.notify_tg ? 1 : 0,
+        body.notify_email ? 1 : 0,
+        body.autosearch_enabled ? 1 : 0,
+        u.user_id
+      ).run();
+      return json({ ok: true });
+    }
+
+    if (action === 'clear_history') {
+      await env.DB.prepare('DELETE FROM search_history WHERE user_id = ?').bind(u.user_id).run();
+      return json({ ok: true });
+    }
+
+    if (action === 'clear_favorites') {
+      await env.DB.prepare('DELETE FROM favorites WHERE user_id = ?').bind(u.user_id).run();
+      return json({ ok: true });
+    }
+
+    if (action === 'export') {
+      var history = await env.DB.prepare('SELECT city, niche, count, with_phone, created_at FROM search_history WHERE user_id = ? ORDER BY created_at DESC').bind(u.user_id).all();
+      var favs = await env.DB.prepare('SELECT name, phone, email, addr, type, opening, lat, lon, source_city, source_niche, created_at FROM favorites WHERE user_id = ? ORDER BY created_at DESC').bind(u.user_id).all();
+      return json({
+        user: { email: u.email, plan: u.plan },
+        exported_at: new Date().toISOString(),
+        history: history.results || [],
+        favorites: favs.results || []
+      });
+    }
+
+    return json({ error: 'unknown action' }, 400);
+  }
+
+  return json({ error: 'method not allowed' }, 405);
 }
