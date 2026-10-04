@@ -23,7 +23,6 @@
     <button class="modal-close" id="authModalClose">×</button>
     <h2 id="authTitle">Вход</h2>
     <p class="sub" id="authSub">Войди чтобы искать клиентов</p>
-
     <div class="auth-sep"><span>Войти через</span></div>
     <div class="oauth-row">
       <button type="button" class="oauth-btn google" id="oauthGoogle">
@@ -42,7 +41,6 @@
         <span>Telegram</span>
       </button>
     </div>
-
     <p class="auth-terms">Продолжая, ты соглашаешься с <a href="/terms" target="_blank">условиями</a> и <a href="/privacy" target="_blank">политикой конфиденциальности</a>.</p>
   </div>
 </div>
@@ -105,6 +103,91 @@
       </div>
     </div>
     <div class="plans-foot">Платежи <b>скоро</b>. Пока хочешь PRO - напиши в поддержку.</div>
+  </div>
+</div>
+
+<div class="pay" id="payModal">
+  <div class="pay-bg" id="payBg"></div>
+  <div class="pay-body">
+    <button type="button" class="pay-close" id="payClose">×</button>
+    <div class="pay-head">
+      <div class="pay-badge">PRO</div>
+      <h2>Оплата подписки</h2>
+      <p>Доступ откроется сразу после оплаты</p>
+    </div>
+    <div class="pay-plan">
+      <div class="pay-plan-info">
+        <div class="pay-plan-name" id="payPlanName">Lead Hunter PRO</div>
+        <div class="pay-plan-desc" id="payPlanDesc">Подписка на 1 месяц</div>
+      </div>
+      <div class="pay-plan-price" id="payPlanPrice">199 ₽</div>
+    </div>
+    <ul class="pay-features">
+      <li>Безлимитные поиски</li>
+      <li>Все результаты без ограничений</li>
+      <li>CSV-экспорт</li>
+      <li>AI Агент - помощник продаж</li>
+      <li>История поисков и избранное</li>
+    </ul>
+    <button type="button" class="pay-cta" id="payCta">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+      Перейти к оплате
+    </button>
+    <div class="pay-note">
+      Оплата картой РФ, СБП или ЮMoney.<br>
+      Возврат в течение 14 дней - см. <a href="/refund" target="_blank">политику возврата</a>.
+    </div>
+  </div>
+</div>
+
+<div class="sett" id="settModal">
+  <div class="sett-bg" id="settBg"></div>
+  <div class="sett-body">
+    <button type="button" class="sett-close" id="settClose">×</button>
+    <div class="sett-head">
+      <div class="sett-icon">⚙️</div>
+      <h2>Настройки</h2>
+      <p>Город по умолчанию, уведомления, данные</p>
+    </div>
+
+    <div class="sett-section">
+      <div class="sett-section-title">Поиск по умолчанию</div>
+      <div class="field"><label>Город</label><input id="settCity" placeholder="Москва"></div>
+      <div class="field"><label>Ниша</label><input id="settNiche" placeholder="стоматология"></div>
+      <div class="sett-hint">Подставляется автоматически при открытии сайта</div>
+    </div>
+
+    <div class="sett-section">
+      <div class="sett-section-title">Уведомления</div>
+      <div class="field"><label>Telegram chat_id</label><input id="settChatId" placeholder="получить через @userinfobot"></div>
+      <label class="sett-toggle">
+        <input type="checkbox" id="settNotifyTg">
+        <span class="sett-toggle-ui"></span>
+        <span class="sett-toggle-label">Уведомления в Telegram</span>
+      </label>
+      <label class="sett-toggle">
+        <input type="checkbox" id="settNotifyEmail">
+        <span class="sett-toggle-ui"></span>
+        <span class="sett-toggle-label">Уведомления на email</span>
+      </label>
+      <label class="sett-toggle">
+        <input type="checkbox" id="settAutosearch">
+        <span class="sett-toggle-ui"></span>
+        <span class="sett-toggle-label">Автопоиск по расписанию</span>
+      </label>
+    </div>
+
+    <button type="button" class="sett-save" id="settSave">Сохранить</button>
+    <div class="sett-msg" id="settMsg"></div>
+
+    <div class="sett-section" style="margin-top:24px">
+      <div class="sett-section-title">Данные</div>
+      <div class="sett-actions">
+        <button type="button" class="sett-action" id="settExport">📥 Экспорт всех данных</button>
+        <button type="button" class="sett-action warn" id="settClearHistory">🗑 Очистить историю поиска</button>
+        <button type="button" class="sett-action warn" id="settClearFav">🗑 Очистить избранное</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -201,89 +284,7 @@
     </div>
   </div>
 </div>
-<div class="pay" id="payModal">
-  <div class="pay-bg" id="payBg"></div>
-  <div class="pay-body">
-    <button type="button" class="pay-close" id="payClose">×</button>
-    <div class="pay-head">
-      <div class="pay-badge">PRO</div>
-      <h2>Оплата подписки</h2>
-      <p>Доступ откроется сразу после оплаты</p>
-    </div>
-    <div class="sett" id="settModal">
-  <div class="sett-bg" id="settBg"></div>
-  <div class="sett-body">
-    <button type="button" class="sett-close" id="settClose">×</button>
-    <div class="sett-head">
-      <div class="sett-icon">⚙️</div>
-      <h2>Настройки</h2>
-      <p>Город по умолчанию, уведомления, данные</p>
-    </div>
 
-    <div class="sett-section">
-      <div class="sett-section-title">Поиск по умолчанию</div>
-      <div class="field"><label>Город</label><input id="settCity" placeholder="Москва"></div>
-      <div class="field"><label>Ниша</label><input id="settNiche" placeholder="стоматология"></div>
-      <div class="sett-hint">Подставляется автоматически при открытии сайта</div>
-    </div>
-
-    <div class="sett-section">
-      <div class="sett-section-title">Уведомления</div>
-      <div class="field"><label>Telegram chat_id</label><input id="settChatId" placeholder="получить через @userinfobot"></div>
-      <label class="sett-toggle">
-        <input type="checkbox" id="settNotifyTg">
-        <span class="sett-toggle-ui"></span>
-        <span class="sett-toggle-label">Уведомления в Telegram</span>
-      </label>
-      <label class="sett-toggle">
-        <input type="checkbox" id="settNotifyEmail">
-        <span class="sett-toggle-ui"></span>
-        <span class="sett-toggle-label">Уведомления на email</span>
-      </label>
-      <label class="sett-toggle">
-        <input type="checkbox" id="settAutosearch">
-        <span class="sett-toggle-ui"></span>
-        <span class="sett-toggle-label">Автопоиск по расписанию</span>
-      </label>
-    </div>
-
-    <button type="button" class="sett-save" id="settSave">Сохранить</button>
-    <div class="sett-msg" id="settMsg"></div>
-
-    <div class="sett-section">
-      <div class="sett-section-title">Данные</div>
-      <div class="sett-actions">
-        <button type="button" class="sett-action" id="settExport">📥 Экспорт всех данных</button>
-        <button type="button" class="sett-action warn" id="settClearHistory">🗑 Очистить историю поиска</button>
-        <button type="button" class="sett-action warn" id="settClearFav">🗑 Очистить избранное</button>
-      </div>
-    </div>
-  </div>
-</div>
-    <div class="pay-plan">
-      <div class="pay-plan-info">
-        <div class="pay-plan-name" id="payPlanName">Lead Hunter PRO</div>
-        <div class="pay-plan-desc" id="payPlanDesc">Подписка на 1 месяц</div>
-      </div>
-      <div class="pay-plan-price" id="payPlanPrice">199 ₽</div>
-    </div>
-    <ul class="pay-features">
-      <li>Безлимитные поиски</li>
-      <li>Все результаты без ограничений</li>
-      <li>CSV-экспорт</li>
-      <li>AI Агент - помощник продаж</li>
-      <li>История поисков и избранное</li>
-    </ul>
-    <button type="button" class="pay-cta" id="payCta">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
-      Перейти к оплате
-    </button>
-    <div class="pay-note">
-      Оплата картой РФ, СБП или ЮMoney.<br>
-      Возврат в течение 14 дней - см. <a href="/refund" target="_blank">политику возврата</a>.
-    </div>
-  </div>
-</div>
 <div class="onb" id="onbModal">
   <div class="onb-bg" id="onbBg"></div>
   <div class="onb-spot" id="onbSpot"></div>
