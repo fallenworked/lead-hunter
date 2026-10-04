@@ -2,7 +2,7 @@ import html from './index.html';
 import logo from './logo.png';
 import styleCss from './style.css';
 import scriptJs from './script.js';
-import { handleChat, handleAILimit } from './ai.js';
+import { handleChat, handleAILimit, handleLeadScript } from './ai.js';
 import { termsPage, privacyPage, refundPage, offerPage } from './legal.js';
 import { handleTelegramAuth } from './telegram.js';
 import { runAutosearch, runDailySummary } from './auto.js';
@@ -40,6 +40,7 @@ export default {
     if (url.pathname === '/api/locate') return handleLocate(request, env);
     if (url.pathname === '/api/ai/chat') return handleChat(request, env);
     if (url.pathname === '/api/ai/limit') return handleAILimit(request, env);
+    if (url.pathname === '/api/ai/lead-script') return handleLeadScript(request, env);
     if (url.pathname === '/api/history') return handleHistory(request, env);
     if (url.pathname === '/api/history/update') return handleHistoryUpdate(request, env);
     if (url.pathname === '/api/favorites') return handleFavorites(request, env);
