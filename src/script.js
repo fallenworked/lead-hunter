@@ -106,10 +106,8 @@
       var yandexLink = 'https://yandex.ru/maps/?text=' + encodeURIComponent((l.name || '') + ' ' + (state.city || ''));
       var gisLink = 'https://2gis.ru/search/' + encodeURIComponent(l.name + ' ' + state.city);
       var routeLink = (l.lat && l.lon) ? 'https://yandex.ru/maps/?rtext=~' + l.lat + ',' + l.lon : '';
-
       var fav = canFav ? isFavorite(l) : null;
       var starHtml = canFav ? '<button type="button" class="star' + (fav ? ' on' : '') + '" data-fav-idx="' + i + '">' + (fav ? '★' : '☆') + '</button>' : '';
-
       html += '<article class="card' + (starHtml ? ' has-star' : '') + '">';
       html += starHtml;
       html += '<div class="card-head"><div style="flex:1;min-width:0">';
@@ -132,7 +130,6 @@
     g.innerHTML = html;
     var nu = $('noticeUpgrade');
     if(nu) nu.addEventListener('click', openPlans);
-
     var stars = g.querySelectorAll('.star');
     for(var si = 0; si < stars.length; si++){
       (function(btn){
@@ -291,21 +288,16 @@
       for(var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
       var json = new TextDecoder('utf-8').decode(bytes);
       return JSON.parse(json);
-    } catch(e){ return null; }
+    } catch(e){
+      alert('decodeTelegramHash error: ' + e.message);
+      return null;
+    }
   }
 
   function checkTelegramAuth(){
-    alert('checkTelegramAuth запущен\n\nhash: ' + window.location.hash.slice(0, 80));
-    if(!window.location.hash || window.location.hash.indexOf('tgAuthResult=') === -1){
-      alert('В hash нет tgAuthResult - вход через Telegram не запущен');
-      return;
-    }
+    if(!window.location.hash || window.location.hash.indexOf('tgAuthResult=') === -1) return;
     var data = decodeTelegramHash(window.location.hash);
-    alert('Данные расшифрованы:\n\n' + JSON.stringify(data).slice(0, 300));
-    if(!data || !data.id || !data.hash){
-      alert('Ошибка: нет id или hash');
-      return;
-    }
+    if(!data || !data.id || !data.hash){ alert('Telegram: нет данных в hash'); return; }
     var cleanUrl = window.location.origin + window.location.pathname;
     try { window.history.replaceState(null, '', cleanUrl); } catch(e){}
     fetch('/api/auth/telegram', {
@@ -315,65 +307,16 @@
     })
     .then(function(r){
       return r.text().then(function(txt){
-        alert('Сервер ответил статус ' + r.status + '\n\n' + txt.slice(0, 300));
+        alert('Сервер: ' + r.status + '\n' + txt.slice(0, 250));
         try { return JSON.parse(txt); } catch(e){ return null; }
       });
     })
     .then(function(res){
-      if(res && res.error){
-        alert('Ошибка от сервера: ' + res.error);
-        return;
-      }
-      if(res && res.ok){
-        alert('Успех! Перезагружаю...');
-        location.reload();
-      }
+      if(res && res.error){ return; }
+      if(res && res.ok){ location.reload(); }
     })
     .catch(function(e){
-      alert('Сетевая ошибка: ' + e.message);
-    });
-  }
-
-    function showDebug(msg){
-      var d = document.createElement('div');
-      d.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#000;color:#0f0;font-family:monospace;font-size:11px;padding:10px;z-index:99999;line-height:1.4;white-space:pre-wrap;max-height:80vh;overflow:auto';
-      d.textContent = msg;
-      document.body.appendChild(d);
-    }
-
-    var data = decodeTelegramHash(window.location.hash);
-    if(!data){ showDebug('Ошибка: не удалось декодировать данные из хэша\nhash=' + window.location.hash.slice(0, 100)); return; }
-    if(!data.id || !data.hash){ showDebug('Ошибка: в данных нет id или hash\n' + JSON.stringify(data).slice(0, 200)); return; }
-
-    showDebug('Отправляю на сервер:\nid=' + data.id + '\nusername=' + data.username + '\nhash=' + data.hash.slice(0, 20) + '...');
-
-    var cleanUrl = window.location.origin + window.location.pathname;
-    try { window.history.replaceState(null, '', cleanUrl); } catch(e){}
-
-    fetch('/api/auth/telegram', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    })
-    .then(function(r){
-      return r.text().then(function(txt){
-        showDebug('Сервер ответил статус ' + r.status + '\n\nТело:\n' + txt.slice(0, 500));
-        try { return JSON.parse(txt); } catch(e){ return null; }
-      });
-    })
-    .then(function(res){
-      if(!res){ return; }
-      if(res.error){
-        showDebug('Ошибка оте сервера: ' + res.error);
-        return;
-      }
-      showDebug('Успех! Юзер: ' + (res.user ? res.user.email : '?') + '\n\nЗакрываю через 2 сек и обновляю...');
-      setTimeout(function(){
-        location.reload();
-      }, 2000);
-    })
-    .catch(function(e){
-      showDebug('Сетевая ошибка: ' + e.message);
+      alert('Сеть: ' + e.message);
     });
   }
 
@@ -494,7 +437,7 @@
     var m = $('aiModal');
     if(!m) return;
     if(!state.user){ closeDrawer(); setTimeout(function(){ openAuth('login'); }, 200); return; }
-    if(state.user.plan !== 'pro'){ closeDrawer(); setTimeout(function(){ alert('AI Агент доступен только в PRO.\n\nОформи подписку - 199₽/мес или 1199₽/год.'); }, 250); return; }
+    if(state.user.plan !== 'pro'){ closeDrawer(); setTimeout(function(){ alert('AI Агент доступен только в PRO.'); }, 250); return; }
     if(!aiHistory.length) aiHistory = aiLoadHistory();
     renderAIMessages();
     m.classList.add('show');
@@ -854,7 +797,6 @@
       html += '</div>';
     }
     list.innerHTML = html;
-
     var removes = list.querySelectorAll('.fav-item-remove');
     for(var ri = 0; ri < removes.length; ri++){
       (function(btn){
@@ -1106,10 +1048,12 @@
   bindOnboarding();
   renderPresets();
 
-  checkTelegramAuth();
-
+  // Запуск: сначала прелоадер, потом refresh, потом проверка Telegram hash
   preload().then(function(){
     refreshMe();
+    setTimeout(function(){
+      try { checkTelegramAuth(); } catch(e){ console.error('checkTelegramAuth err', e); }
+    }, 100);
   }).catch(function(e){
     console.error('boot err', e);
     var pl = $('preloader'), app = $('app');
