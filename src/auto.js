@@ -264,3 +264,14 @@ export async function runAutosearch(env) {
     }
   }
 }
+export async function searchForUser(user, env) {
+  var key = normalizeCity(user.default_city);
+  var cityInfo = CITIES[key];
+  if (!cityInfo) throw new Error('город не найден');
+  var city = { lat: cityInfo[0], lon: cityInfo[1], n: cityInfo[3] };
+  var niche = user.default_niche.trim().toLowerCase();
+  var query = buildQuery(city, niche);
+  var elements = await overpass(query);
+  var leads = elements.map(extract).filter(Boolean);
+  return { total: leads.length, leads: leads };
+}
