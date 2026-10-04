@@ -8,6 +8,7 @@ import { handleTelegramAuth } from './telegram.js';
 import { runAutosearch, runDailySummary } from './auto.js';
 import { handleTelegramWebhook } from './telegram_bot.js';
 import { handleGoogleStart, handleGoogleCallback } from './google.js';
+import { handleCreatePayment, handlePayTestPage, handleTestConfirm, handlePaymentWebhook } from './payment.js';
 
 export default {
   async scheduled(event, env, ctx) {
@@ -46,7 +47,10 @@ export default {
     if (url.pathname === '/api/favorites') return handleFavorites(request, env);
     if (url.pathname === '/api/favorites/add') return handleFavAdd(request, env);
     if (url.pathname === '/api/favorites/remove') return handleFavRemove(request, env);
+    if (url.pathname === '/api/payment/create') return handleCreatePayment(request, env);
+    if (url.pathname === '/api/payment/test-confirm') return handleTestConfirm(request, env);
     if (url.pathname === '/api/payment/webhook') return handlePaymentWebhook(request, env);
+    if (url.pathname === '/pay-test') return handlePayTestPage(request, env);
     if (url.pathname === '/api/profile/password') return handleChangePassword(request, env);
     if (url.pathname === '/api/profile/delete') return handleDeleteAccount(request, env);
     if (url.pathname === '/api/settings') return handleSettings(request, env);
@@ -566,10 +570,3 @@ async function handleSettings(request, env) {
   return json({ error: 'method not allowed' }, 405);
 }
 
-// ═══ PAYMENT WEBHOOK (заглушка до подключения ЮKassa) ═══
-async function handlePaymentWebhook(request, env) {
-  if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
-  if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405);
-  // TODO: после подключения ЮKassa — проверка подписи и активация PRO
-  return json({ ok: true, note: 'webhook placeholder' });
-}
