@@ -1,6 +1,21 @@
 // Telegram-бот для управления автоматизацией Lead Hunter
 import { searchForUser } from './auto.js';
 
+async function getState(chatId, env) {
+  var row = await env.DB.prepare('SELECT state FROM bot_state WHERE chat_id = ?').bind(String(chatId)).first();
+  return row ? row.state : null;
+}
+
+async function setState(chatId, state, env) {
+  if (!state) {
+    await env.DB.prepare('DELETE FROM bot_state WHERE chat_id = ?').bind(String(chatId)).run();
+  } else {
+    await env.DB.prepare(
+      'INSERT INTO bot_state (chat_id, state, updated_at) VALUES (?, ?, ?) ON CONFLICT(chat_id) DO UPDATE SET state = ?, updated_at = ?'
+    ).bind(String(chatId), state, Date.now(), state, Date.now()).run();
+  }
+}
+
 const HELP_TEXT =
   '👋 <b>Lead Hunter</b>\n\n' +
   'Управление поиском прямо в Telegram.\n\n' +
@@ -252,13 +267,15 @@ export async function handleTelegramWebhook(request, env) {
       return new Response('ok');
     }
 
-    if (cbData === 'ask_city') {
-      await send(env, cbChatId, 'Введи город командой:\n<code>/city Казань</code>');
+        if (cbData === 'ask_city') {
+      await setState(cbChatId, 'await_city', env);
+      await send(env, cbChatId, '🏙 Напиши название города одним сообщением.\n\nПример: <b>Казань</b>\n\nОтмена: /cancel');
       return new Response('ok');
     }
 
     if (cbData === 'ask_niche') {
-      await send(env, cbChatId, 'Введи нишу командой:\n<code>/niche кафе</code>');
+      await setState(cbChatId, 'await_niche', env);
+      await send(env, cbChatId, '🏷 Напиши название ниши одним сообщением.\n\nПримеры: <b>кафе</b>, <b>стоматология</b>, <b>автосервис</b>\n\nОтмена: /cancel');
       return new Response('ok');
     }
 
@@ -279,7 +296,48 @@ export async function handleTelegramWebhook(request, env) {
   if (text === '📊 Сводка') text = '/summary on';
   if (text === '❓ Помощь') text = '/help';
 
-  var user = await getChatId(chatId, env);
+    var user = await getChatId(chatId, env);
+  var currentState = await getState(chatId, env);
+
+  // Обработка команд отмены
+  if (text === '/cancel') {
+    if (currentState) {
+      await setState(chatId, null, env);
+      await send(env, chatId, '↩️ Отменено', mainMenu());
+    } else {
+      await send(env, chatId, 'Нечего отменять', mainMenu());
+    }
+    return new Response('ok');
+  }
+
+  // Обработка пошагового ввода
+  if (currentState && !text.startsWith('/')) {
+    if (currentState === 'await_city') {
+      if (!user) { await setState(chatId, null, env); return new Response('ok'); }
+      var cityName = text.trim();
+      if (cityName.length < 2 || cityName.length > 50) {
+        await send(env, chatId, '⚠️ Название слишком короткое или длинное. Попробуй ещё раз или /cancel');
+        return new Response('ok');
+      }
+      await env.DB.prepare('UPDATE users SET default_city = ? WHERE id = ?').bind(cityName, user.id).run();
+      await setState(chatId, null, env);
+      await send(env, chatId, '✅ Город сохранён: <b>' + cityName + '</b>', mainMenu());
+      return new Response('ok');
+    }
+
+    if (currentState === 'await_niche') {
+      if (!user) { await setState(chatId, null, env); return new Response('ok'); }
+      var nicheName = text.trim().toLowerCase();
+      if (nicheName.length < 2 || nicheName.length > 50) {
+        await send(env, chatId, '⚠️ Название слишком короткое или длинное. Попробуй ещё раз или /cancel');
+        return new Response('ok');
+      }
+      await env.DB.prepare('UPDATE users SET default_niche = ? WHERE id = ?').bind(nicheName, user.id).run();
+      await setState(chatId, null, env);
+      await send(env, chatId, '✅ Ниша сохранена: <b>' + nicheName + '</b>', mainMenu());
+      return new Response('ok');
+    }
+  }
 
   if (text === '/start') { await cmdStart(chatId, user, env); return new Response('ok'); }
   if (text === '/help') { await send(env, chatId, HELP_TEXT); return new Response('ok'); }
