@@ -210,6 +210,56 @@
       <h2>Оплата подписки</h2>
       <p>Доступ откроется сразу после оплаты</p>
     </div>
+    <div class="sett" id="settModal">
+  <div class="sett-bg" id="settBg"></div>
+  <div class="sett-body">
+    <button type="button" class="sett-close" id="settClose">×</button>
+    <div class="sett-head">
+      <div class="sett-icon">⚙️</div>
+      <h2>Настройки</h2>
+      <p>Город по умолчанию, уведомления, данные</p>
+    </div>
+
+    <div class="sett-section">
+      <div class="sett-section-title">Поиск по умолчанию</div>
+      <div class="field"><label>Город</label><input id="settCity" placeholder="Москва"></div>
+      <div class="field"><label>Ниша</label><input id="settNiche" placeholder="стоматология"></div>
+      <div class="sett-hint">Подставляется автоматически при открытии сайта</div>
+    </div>
+
+    <div class="sett-section">
+      <div class="sett-section-title">Уведомления</div>
+      <div class="field"><label>Telegram chat_id</label><input id="settChatId" placeholder="получить через @userinfobot"></div>
+      <label class="sett-toggle">
+        <input type="checkbox" id="settNotifyTg">
+        <span class="sett-toggle-ui"></span>
+        <span class="sett-toggle-label">Уведомления в Telegram</span>
+      </label>
+      <label class="sett-toggle">
+        <input type="checkbox" id="settNotifyEmail">
+        <span class="sett-toggle-ui"></span>
+        <span class="sett-toggle-label">Уведомления на email</span>
+      </label>
+      <label class="sett-toggle">
+        <input type="checkbox" id="settAutosearch">
+        <span class="sett-toggle-ui"></span>
+        <span class="sett-toggle-label">Автопоиск по расписанию</span>
+      </label>
+    </div>
+
+    <button type="button" class="sett-save" id="settSave">Сохранить</button>
+    <div class="sett-msg" id="settMsg"></div>
+
+    <div class="sett-section">
+      <div class="sett-section-title">Данные</div>
+      <div class="sett-actions">
+        <button type="button" class="sett-action" id="settExport">📥 Экспорт всех данных</button>
+        <button type="button" class="sett-action warn" id="settClearHistory">🗑 Очистить историю поиска</button>
+        <button type="button" class="sett-action warn" id="settClearFav">🗑 Очистить избранное</button>
+      </div>
+    </div>
+  </div>
+</div>
     <div class="pay-plan">
       <div class="pay-plan-info">
         <div class="pay-plan-name" id="payPlanName">Lead Hunter PRO</div>
