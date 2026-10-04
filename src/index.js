@@ -21,6 +21,15 @@ export default {
     if (url.pathname === '/script.js') return new Response(scriptJs, { headers: { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
     if (url.pathname === '/api/auth/telegram') return handleTelegramAuth(request, env);
     if (url.pathname === '/api/telegram/webhook') return handleTelegramWebhook(request, env);
+    if (url.pathname === '/api/cron/run') {
+      const secret = url.searchParams.get('secret');
+      if (secret !== 'lh_test_2026') return new Response('forbidden', { status: 403 });
+      const { runAutosearch, runDailySummary } = await import('./auto.js');
+      const result = {};
+      try { await runAutosearch(env); result.autosearch = 'ok'; } catch(e){ result.autosearch = e.message; }
+      try { await runDailySummary(env); result.summary = 'ok'; } catch(e){ result.summary = e.message; }
+      return new Response(JSON.stringify(result, null, 2), { headers: { 'Content-Type': 'application/json' } });
+    }
     if (url.pathname === '/api/auth/google/start') return handleGoogleStart(request, env);
     if (url.pathname === '/api/auth/google/callback') return handleGoogleCallback(request, env);
     if (url.pathname === '/api/auth/register') return handleRegister(request, env);
