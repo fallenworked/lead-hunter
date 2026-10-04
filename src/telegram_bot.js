@@ -217,6 +217,66 @@ export async function handleTelegramWebhook(request, env) {
   try { body = await request.json(); }
   catch (e) { return new Response('bad json', { status: 400 }); }
 
+  async function generateScript(user, leadName, city, niche, env) {
+  var apiKey = env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('GEMINI_API_KEY не задан');
+
+  // Проверяем кеш
+  var cached = await env.DB.prepare(
+    'SELECT script FROM ai_scripts WHERE user_id = ? AND lead_name = ? AND city = ? AND niche = ?'
+  ).bind(user.id, leadName, city, niche).first();
+
+  if (cached && cached.script) return cached.script;
+
+  var prompt =
+    'Составь скрипт холодного звонка для B2B-продажи услуги «разработка сайта».\n\n' +
+    'Бизнес: ' + leadName + '\n' +
+    'Ниша: ' + niche + '\n' +
+    'Город: ' + city + '\n' +
+    'У бизнеса НЕТ своего сайта.\n\n' +
+    'Требования:\n' +
+    '- Кратко, по делу, без воды.\n' +
+    '- Структура: открытие, квалификация, презентация, закрытие на встречу.\n' +
+    '- Живые фразы, которые можно сразу говорить.\n' +
+    '- Ответы на 3 типовых возражения («нет денег», «уже есть соцсети», «мне не надо»).\n' +
+    '- До 600 слов.\n' +
+    '- Русский язык.';
+
+  var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=' + apiKey;
+  var r = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.7, maxOutputTokens: 1500 }
+    })
+  });
+
+  if (!r.ok) {
+    var txt = await r.text();
+    throw new Error('Gemini ' + r.status + ': ' + txt.slice(0, 100));
+  }
+
+  var data = await r.json();
+  var text = '';
+  if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
+    for (var i = 0; i < data.candidates[0].content.parts.length; i++) {
+      text += data.candidates[0].content.parts[i].text || '';
+    }
+  }
+  text = text.trim();
+  if (!text) throw new Error('пустой ответ Gemini');
+
+  // Кешируем
+  try {
+    await env.DB.prepare(
+      'INSERT OR REPLACE INTO ai_scripts (user_id, lead_name, city, niche, script, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+    ).bind(user.id, leadName, city, niche, text, Date.now()).run();
+  } catch (e) {}
+
+  return text;
+}
+
   // ═══ CALLBACK QUERY (inline-кнопки) ═══
   if (body.callback_query) {
     var cb = body.callback_query;
@@ -232,6 +292,41 @@ export async function handleTelegramWebhook(request, env) {
       } else {
         await send(env, cbChatId, '⭐ Лиды уже сохранены. Открой сайт чтобы посмотреть: lead-hunt.su');
       }
+          if (cbData.indexOf('ai_script:') === 0) {
+      if (!cbUser) return new Response('ok');
+      if (cbUser.plan !== 'pro') {
+        await send(env, cbChatId, '🚫 AI-скрипты доступны только в PRO.');
+        return new Response('ok');
+      }
+      var parts = cbData.substring(10).split(':');
+      var leadName = decodeURIComponent(parts[0] || '');
+      var leadCity = decodeURIComponent(parts[1] || '');
+      var leadNiche = decodeURIComponent(parts[2] || '');
+
+      await send(env, cbChatId, '🎯 Генерирую скрипт для «' + leadName + '»…\n5-10 секунд.');
+
+      try {
+        var script = await generateScript(cbUser, leadName, leadCity, leadNiche, env);
+
+        // TG ограничение 4096 символов, режем если что
+        var msg = '🎯 <b>Скрипт звонка</b>\n';
+        msg += 'Для: <b>' + leadName + '</b>\n';
+        msg += 'Ниша: <b>' + leadNiche + '</b> · ' + leadCity + '\n\n';
+        msg += script;
+        if (msg.length > 4000) msg = msg.slice(0, 3990) + '…';
+
+        var copyMarkup = {
+          inline_keyboard: [[
+            { text: '📋 Скопировать', switch_inline_query_current_chat: '' }
+          ]]
+        };
+
+        await send(env, cbChatId, msg, copyMarkup);
+      } catch (e) {
+        await send(env, cbChatId, '❌ Ошибка: ' + e.message);
+      }
+      return new Response('ok');
+    }
       return new Response('ok');
     }
 
