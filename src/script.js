@@ -986,7 +986,7 @@
     if(oauthGoogle) oauthGoogle.addEventListener('click', startGoogleAuth);
     if(oauthTelegram) oauthTelegram.addEventListener('click', startTelegramAuth);
     document.addEventListener('keydown', function(e){
-      if(e.key === 'Escape'){ closeAuth(); closePlans(); closeAI(); closeDrawer(); closeHistory(); closeFavorites(); closeProfile(); }
+        if(e.key === 'Escape'){ closeAuth(); closePlans(); closePay(); closeAI(); closeDrawer(); closeHistory(); closeFavorites(); closeProfile(); }
     });
   }
 
