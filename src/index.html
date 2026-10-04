@@ -42,15 +42,8 @@
         <span>Telegram</span>
       </button>
     </div>
-    <div class="auth-sep"><span>или</span></div>
 
-    <form id="authForm" onsubmit="return false">
-      <div class="field"><label>Email</label><input id="authEmail" type="email" placeholder="you@example.com"></div>
-      <div class="field"><label>Пароль</label><input id="authPassword" type="password" placeholder="минимум 6 символов"></div>
-      <button class="btn btn-primary" id="authSubmit" type="submit">Войти</button>
-      <div class="modal-msg" id="authMsg"></div>
-      <div class="modal-switch"><span id="authSwitchText">Нет аккаунта?</span> <a id="authSwitchLink">Регистрация</a></div>
-    </form>
+    <p class="auth-terms">Продолжая, ты соглашаешься с <a href="/terms" target="_blank">условиями</a> и <a href="/privacy" target="_blank">политикой конфиденциальности</a>.</p>
   </div>
 </div>
 
@@ -196,21 +189,12 @@
       <div class="prof-email" id="profEmail">-</div>
       <div class="prof-badge" id="profBadge">FREE</div>
     </div>
-    <div class="prof-section">
-      <div class="prof-section-title">Смена пароля</div>
-      <div class="field"><label>Текущий пароль</label><input id="profCurrent" type="password" placeholder="••••••"></div>
-      <div class="field"><label>Новый пароль</label><input id="profNew" type="password" placeholder="минимум 6 символов"></div>
-      <div class="field"><label>Повтори новый</label><input id="profRepeat" type="password" placeholder="••••••"></div>
-      <button type="button" class="btn btn-primary prof-save" id="profSave">Сохранить пароль</button>
-      <div class="prof-msg" id="profMsg"></div>
-    </div>
     <div class="prof-section prof-danger">
       <div class="prof-section-title">Опасная зона</div>
       <p class="prof-danger-text">Удаление аккаунта необратимо. Все поиски, избранное и подписка будут стёрты.</p>
       <button type="button" class="prof-delete-btn" id="profDeleteToggle">Удалить аккаунт</button>
       <div class="prof-delete-form" id="profDeleteForm" style="display:none">
         <div class="field"><label>Введи слово <b>УДАЛИТЬ</b> заглавными</label><input id="profDeleteConfirm" placeholder="УДАЛИТЬ"></div>
-        <div class="field"><label>Пароль</label><input id="profDeletePassword" type="password" placeholder="••••••"></div>
         <button type="button" class="prof-delete-final" id="profDeleteFinal">Удалить навсегда</button>
         <button type="button" class="prof-delete-cancel" id="profDeleteCancel">Отмена</button>
       </div>
