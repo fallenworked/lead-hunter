@@ -5,13 +5,14 @@ import scriptJs from './script.js';
 import { handleChat, handleAILimit } from './ai.js';
 import { termsPage, privacyPage, refundPage, offerPage } from './legal.js';
 import { handleTelegramAuth } from './telegram.js';
-import { runAutosearch } from './auto.js';
+import { runAutosearch, runDailySummary } from './auto.js';
 import { handleTelegramWebhook } from './telegram_bot.js';
 import { handleGoogleStart, handleGoogleCallback } from './google.js';
 
 export default {
-    async scheduled(event, env, ctx) {
+      async scheduled(event, env, ctx) {
     ctx.waitUntil(runAutosearch(env));
+    ctx.waitUntil(runDailySummary(env));
   },
   
   async fetch(request, env) {
