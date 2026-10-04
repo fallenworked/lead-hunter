@@ -123,6 +123,110 @@ export async function handleGoogleCallback(request, env) {
   if (!googleId || !email) return new Response('Google не вернул данные', { status: 500 });
 
   var now = Date.now();
+  var user = null;
+
+  // Шаг 1: ищем по google_id
+  var byGoogle = await env.DB.prepare(
+    'SELECT id, email, plan, auth_provider FROM users WHERE google_id = ? LIMIT 1'
+  ).bind(googleId).first();
+
+  if (byGoogle) {
+    user = byGoogle;
+    // обновляем email если сменился (и он не занят другим)
+    if (byGoogle.email !== email) {
+      var emailTaken = await env.DB.prepare(
+        'SELECT id FROM users WHERE email = ? AND id != ? LIMIT 1'
+      ).bind(email, byGoogle.id).first();
+      if (!emailTaken) {
+        await env.DB.prepare('UPDATE users SET email = ? WHERE id = ?').bind(email, byGoogle.id).run();
+        user.email = email;
+      }
+    }
+  } else {
+    // Шаг 2: ищем по email — но только если аккаунт не привязан к другому провайдеру
+    var byEmail = await env.DB.prepare(
+      'SELECT id, email, plan, auth_provider FROM users WHERE email = ? LIMIT 1'
+    ).bind(email).first();
+
+    if (byEmail && (byEmail.auth_provider === 'google' || !byEmail.auth_provider)) {
+      // Безопасно: аккаунт либо уже Google, либо чистый (не от OAuth).
+      // Привязываем google_id.
+      await env.DB.prepare(
+        'UPDATE users SET google_id = ?, auth_provider = ? WHERE id = ?'
+      ).bind(googleId, 'google', byEmail.id).run();
+      user = byEmail;
+    } else {
+      // Аккаунт занят другим провайдером (telegram или др.) — не смешиваем.
+      // Создаём новый аккаунт с уникальным email.
+      var placeholderEmail = email;
+      var emailConflict = byEmail;
+      if (emailConflict) {
+        // email уже занят — используем плейсхолдер
+        placeholderEmail = 'g_' + googleId + '@lead-hunter.local';
+      }
+
+      var salt = randomHex(16);
+      var fakeHash = randomHex(64);
+      var res = await env.DB.prepare(
+        'INSERT INTO users (email, password_hash, salt, created_at, plan, google_id, auth_provider) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      ).bind(placeholderEmail, fakeHash, salt, now, 'free', googleId, 'google').run();
+
+      user = { id: res.meta.last_row_id, email: placeholderEmail, plan: 'free' };
+    }
+  }
+
+  var token = randomHex(32);
+  var expires = now + SESSION_DAYS * 24 * 60 * 60 * 1000;
+
+  await env.DB.prepare(
+    'INSERT INTO sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)'
+  ).bind(token, user.id, now, expires).run();
+
+  // Сбрасываем oauth_state cookie после использования
+  return new Response(null, {
+    status: 302,
+    headers: {
+      'Location': '/?auth=ok',
+      'Set-Cookie': sessionCookie(token, SESSION_DAYS * 24 * 60 * 60)
+    }
+  });
+}
+  var redirectUri = url.origin + REDIRECT_PATH;
+
+  var tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'code=' + encodeURIComponent(code) +
+      '&client_id=' + encodeURIComponent(clientId) +
+      '&client_secret=' + encodeURIComponent(clientSecret) +
+      '&redirect_uri=' + encodeURIComponent(redirectUri) +
+      '&grant_type=authorization_code'
+  });
+
+  if (!tokenRes.ok) {
+    var t = await tokenRes.text();
+    return new Response('Ошибка обмена токена: ' + t.slice(0, 200), { status: 500 });
+  }
+
+  var tokens = await tokenRes.json();
+  var accessToken = tokens.access_token;
+  if (!accessToken) return new Response('Нет access_token', { status: 500 });
+
+  var userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+    headers: { 'Authorization': 'Bearer ' + accessToken }
+  });
+
+  if (!userRes.ok) return new Response('Не удалось получить профиль', { status: 500 });
+
+  var guser = await userRes.json();
+  var googleId = guser.id;
+  var email = (guser.email || '').toLowerCase();
+  var name = guser.name || '';
+  var picture = guser.picture || '';
+
+  if (!googleId || !email) return new Response('Google не вернул данные', { status: 500 });
+
+  var now = Date.now();
 
   var user = await env.DB.prepare(
     'SELECT id, email, plan FROM users WHERE google_id = ? OR email = ? LIMIT 1'
