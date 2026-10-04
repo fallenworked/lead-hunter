@@ -295,7 +295,44 @@
   }
 
   function checkTelegramAuth(){
-    if(!window.location.hash || window.location.hash.indexOf('tgAuthResult=') === -1) return;
+    alert('checkTelegramAuth запущен\n\nhash: ' + window.location.hash.slice(0, 80));
+    if(!window.location.hash || window.location.hash.indexOf('tgAuthResult=') === -1){
+      alert('В hash нет tgAuthResult - вход через Telegram не запущен');
+      return;
+    }
+    var data = decodeTelegramHash(window.location.hash);
+    alert('Данные расшифрованы:\n\n' + JSON.stringify(data).slice(0, 300));
+    if(!data || !data.id || !data.hash){
+      alert('Ошибка: нет id или hash');
+      return;
+    }
+    var cleanUrl = window.location.origin + window.location.pathname;
+    try { window.history.replaceState(null, '', cleanUrl); } catch(e){}
+    fetch('/api/auth/telegram', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    })
+    .then(function(r){
+      return r.text().then(function(txt){
+        alert('Сервер ответил статус ' + r.status + '\n\n' + txt.slice(0, 300));
+        try { return JSON.parse(txt); } catch(e){ return null; }
+      });
+    })
+    .then(function(res){
+      if(res && res.error){
+        alert('Ошибка от сервера: ' + res.error);
+        return;
+      }
+      if(res && res.ok){
+        alert('Успех! Перезагружаю...');
+        location.reload();
+      }
+    })
+    .catch(function(e){
+      alert('Сетевая ошибка: ' + e.message);
+    });
+  }
 
     function showDebug(msg){
       var d = document.createElement('div');
