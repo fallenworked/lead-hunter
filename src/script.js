@@ -289,17 +289,11 @@
       var json = new TextDecoder('utf-8').decode(bytes);
       return JSON.parse(json);
     } catch(e){
-      alert('decodeTelegramHash error: ' + e.message);
       return null;
     }
   }
 
-  function checkTelegramAuth(){
-    if(!window.location.hash || window.location.hash.indexOf('tgAuthResult=') === -1) return;
-    var data = decodeTelegramHash(window.location.hash);
-    if(!data || !data.id || !data.hash){ alert('Telegram: нет данных в hash'); return; }
-    var cleanUrl = window.location.origin + window.location.pathname;
-    try { window.history.replaceState(null, '', cleanUrl); } catch(e){}
+  function sendTelegramAuth(data){
     fetch('/api/auth/telegram', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -307,18 +301,51 @@
     })
     .then(function(r){
       return r.text().then(function(txt){
-        alert('Сервер: ' + r.status + '\n' + txt.slice(0, 250));
-        try { return JSON.parse(txt); } catch(e){ return null; }
+        try { return JSON.parse(txt); } catch(e){ return { error: 'bad json: ' + txt.slice(0, 100) }; }
       });
     })
     .then(function(res){
-      if(res && res.error){ return; }
-      if(res && res.ok){ location.reload(); }
+      if(res && res.error){
+        alert('Ошибка входа через Telegram: ' + res.error);
+        return;
+      }
+      if(res && res.ok){
+        closeAuth();
+        refreshMe();
+      }
     })
     .catch(function(e){
-      alert('Сеть: ' + e.message);
+      alert('Сетевая ошибка: ' + e.message);
     });
   }
+
+  function checkTelegramAuth(){
+    if(!window.location.hash || window.location.hash.indexOf('tgAuthResult=') === -1) return;
+
+    var data = decodeTelegramHash(window.location.hash);
+    if(!data || !data.id || !data.hash) return;
+
+    // Мы в ПОПАПЕ - передаём данные родителю и закрываемся
+    if(window.opener && window.opener !== window){
+      try {
+        window.opener.postMessage({ type: 'telegram_auth', data: data }, window.location.origin);
+      } catch(e){}
+      setTimeout(function(){ window.close(); }, 200);
+      return;
+    }
+
+    // Мы в родительском окне (fallback если попап не сработал)
+    var cleanUrl = window.location.origin + window.location.pathname;
+    try { window.history.replaceState(null, '', cleanUrl); } catch(e){}
+    sendTelegramAuth(data);
+  }
+
+  // Слушаем сообщения от попапа Telegram
+  window.addEventListener('message', function(event){
+    if(event.origin !== window.location.origin) return;
+    if(!event.data || event.data.type !== 'telegram_auth') return;
+    sendTelegramAuth(event.data.data);
+  });
 
   function openDrawer(){
     var d = $('drawer'), b = $('burger');
@@ -1048,7 +1075,6 @@
   bindOnboarding();
   renderPresets();
 
-  // Запуск: сначала прелоадер, потом refresh, потом проверка Telegram hash
   preload().then(function(){
     refreshMe();
     setTimeout(function(){
