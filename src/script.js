@@ -330,7 +330,9 @@
       setTimeout(updatePlansSlider, 120);
     }, 280);
   }
-    function openPay(){
+  function closePlans(){ var pm = $('plansModal'); if(pm) pm.classList.remove('show'); }
+
+  function openPay(){
     var m = $('payModal');
     if(!m) return;
     var isYear = plansPeriod === 'year';
@@ -339,7 +341,6 @@
     closePlans();
     setTimeout(function(){ m.classList.add('show'); }, 200);
   }
-
   function closePay(){ var m = $('payModal'); if(m) m.classList.remove('show'); }
 
   function bindPay(){
@@ -422,7 +423,7 @@
       updatePlansToggle();
       updatePlansSlider();
     });
-        if(proCta) proCta.addEventListener('click', function(){
+    if(proCta) proCta.addEventListener('click', function(){
       if(proCta.disabled) return;
       openPay();
     });
@@ -943,7 +944,7 @@
     if(action === 'profile'){ openProfile(); return; }
     if(action === 'tutorial'){ forceOnboarding(); return; }
     if(action === 'settings'){ closeDrawer(); setTimeout(function(){ alert('Настройки в разработке'); }, 250); return; }
-    if(action === 'support'){ closeDrawer(); setTimeout(function(){ alert('Поддержка: напиши в Telegram-канал сервиса'); }, 250); return; }
+    if(action === 'support'){ closeDrawer(); setTimeout(function(){ alert('Поддержка: @leadhunter_support'); }, 250); return; }
     if(action === 'about'){ closeDrawer(); setTimeout(function(){ alert('Lead Hunter - поиск бизнесов без сайта.\nДанные OpenStreetMap.\nВерсия 1.0'); }, 250); return; }
   }
 
@@ -986,11 +987,11 @@
     if(oauthGoogle) oauthGoogle.addEventListener('click', startGoogleAuth);
     if(oauthTelegram) oauthTelegram.addEventListener('click', startTelegramAuth);
     document.addEventListener('keydown', function(e){
-        if(e.key === 'Escape'){ closeAuth(); closePlans(); closePay(); closeAI(); closeDrawer(); closeHistory(); closeFavorites(); closeProfile(); }
+      if(e.key === 'Escape'){ closeAuth(); closePlans(); closePay(); closeAI(); closeDrawer(); closeHistory(); closeFavorites(); closeProfile(); }
     });
   }
 
-    bind();
+  bind();
   bindPlans();
   bindPay();
   bindAI();
