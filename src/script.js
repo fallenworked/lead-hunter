@@ -125,6 +125,7 @@
       html += '<a href="' + yandexLink + '" target="_blank" rel="noopener">Я.Карты</a>';
       html += '<a href="' + gisLink + '" target="_blank" rel="noopener">2GIS</a>';
       if(routeLink) html += '<a href="' + routeLink + '" target="_blank" rel="noopener">Маршрут</a>';
+      if(canFav) html += '<a href="#" class="ai-lead-script" data-lead-idx="' + i + '">✨ AI-скрипт</a>';
       html += '</div></article>';
     }
     g.innerHTML = html;
@@ -140,6 +141,17 @@
           toggleFavorite(idx, btn);
         });
       })(stars[si]);
+    }
+    var aiBtns = g.querySelectorAll('.ai-lead-script');
+    for(var ai = 0; ai < aiBtns.length; ai++){
+      (function(btn){
+        btn.addEventListener('click', function(e){
+          e.preventDefault();
+          e.stopPropagation();
+          var idx = parseInt(btn.getAttribute('data-lead-idx'), 10);
+          openLeadScript(idx, btn);
+        });
+      })(aiBtns[ai]);
     }
   }
 
@@ -368,7 +380,6 @@
         $('settNotifyEmail').checked = !!d.settings.notify_email;
         $('settAutosearch').checked = !!d.settings.autosearch_enabled;
 
-        // AI стиль
         var styleVal = d.settings.ai_style || 'business';
         var chips = document.querySelectorAll('#aiStyleChips .ai-style-chip');
         for (var ci = 0; ci < chips.length; ci++) {
@@ -967,7 +978,7 @@
     if(confirmText !== 'УДАЛИТЬ'){ alert('Введи слово УДАЛИТЬ точно'); return; }
     if(!confirm('Это действие нельзя отменить. Продолжить?')) return;
     btn.disabled = true;
-    fetch('/api/profile/delete', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ confirm: confirmText, password: 'oauth' }) })
+    fetch('/api/profile/delete', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ confirm: confirmText }) })
       .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, data: d }; }); })
       .then(function(res){
         btn.disabled = false;
@@ -1060,6 +1071,111 @@
     window.addEventListener('resize', function(){ if(onbVisible) renderOnbStep(); });
   }
 
+  function openLeadScript(idx, btn){
+    var lead = state.leads[idx];
+    if(!lead) return;
+    if(!state.user || state.user.plan !== 'pro'){ alert('AI-скрипт доступен только в PRO'); return; }
+
+    var m = $('leadScriptModal');
+    if(!m) return;
+
+    $('lsLeadName').textContent = lead.name || '';
+    $('lsLeadMeta').textContent = [lead.type, lead.addr, state.city].filter(Boolean).join(' · ');
+    $('lsContent').innerHTML = '<div class="ls-loading"><div class="ls-spinner"></div><p>AI готовит персональный скрипт…</p><p class="ls-hint">5–10 секунд</p></div>';
+    $('lsCopyBtn').style.display = 'none';
+    $('lsMeta').textContent = '';
+    m.classList.add('show');
+
+    var phoneClean = '';
+    if(lead.phone){
+      phoneClean = String(lead.phone).split('').filter(function(c){ return c === '+' || (c >= '0' && c <= '9'); }).join('');
+    }
+
+    fetch('/api/ai/lead-script', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: lead.name || '',
+        addr: lead.addr || '',
+        phone: lead.phone || '',
+        type: lead.type || '',
+        opening: lead.opening || '',
+        city: state.city,
+        niche: state.niche
+      })
+    })
+      .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, data: d }; }); })
+      .then(function(res){
+        if(!res.ok){
+          if(res.data.code === 'AI_LIMIT_REACHED'){
+            $('lsContent').innerHTML = '<div class="ls-error">Дневной лимит AI исчерпан. Возвращайся завтра.</div>';
+          } else if(res.data.code === 'PRO_REQUIRED'){
+            $('lsContent').innerHTML = '<div class="ls-error">AI-скрипты доступны только в PRO.</div>';
+          } else {
+            $('lsContent').innerHTML = '<div class="ls-error">Ошибка: ' + esc(res.data.error || 'не удалось получить скрипт') + '</div>';
+          }
+          return;
+        }
+
+        var html = '';
+        var lines = String(res.data.script).split('\n');
+        for(var i = 0; i < lines.length; i++){
+          var line = lines[i];
+          if(!line.trim()){ html += '<br>'; continue; }
+          line = esc(line);
+          line = line.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+          html += '<p>' + line + '</p>';
+        }
+        $('lsContent').innerHTML = html;
+
+        $('lsCopyBtn').style.display = 'inline-flex';
+        $('lsCopyBtn').setAttribute('data-script', res.data.script);
+        $('lsCallBtn').style.display = phoneClean ? 'inline-flex' : 'none';
+        if(phoneClean) $('lsCallBtn').setAttribute('href', 'tel:' + phoneClean);
+
+        var meta = [];
+        if(res.data.cached) meta.push('из кэша');
+        else meta.push('сгенерирован только что');
+        if(res.data.provider) meta.push(res.data.provider);
+        if(res.data.remaining !== undefined) meta.push('осталось: ' + res.data.remaining + '/' + res.data.limit);
+        $('lsMeta').textContent = meta.join(' · ');
+      })
+      .catch(function(e){
+        $('lsContent').innerHTML = '<div class="ls-error">Ошибка сети: ' + esc(e.message) + '</div>';
+      });
+  }
+
+  function closeLeadScript(){
+    var m = $('leadScriptModal');
+    if(m) m.classList.remove('show');
+  }
+
+  function bindLeadScript(){
+    var bg = $('lsBg'), close = $('lsClose'), copy = $('lsCopyBtn');
+    if(bg) bg.addEventListener('click', closeLeadScript);
+    if(close) close.addEventListener('click', closeLeadScript);
+    if(copy) copy.addEventListener('click', function(){
+      var text = copy.getAttribute('data-script') || '';
+      if(!text) return;
+      navigator.clipboard.writeText(text).then(function(){
+        copy.textContent = '✓ Скопировано';
+        setTimeout(function(){ copy.textContent = '📋 Скопировать'; }, 2000);
+      }).catch(function(){
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); } catch(e){}
+        document.body.removeChild(ta);
+        copy.textContent = '✓ Скопировано';
+        setTimeout(function(){ copy.textContent = '📋 Скопировать'; }, 2000);
+      });
+    });
+    document.addEventListener('keydown', function(e){
+      if(e.key === 'Escape') closeLeadScript();
+    });
+  }
+
   function handleAction(action){
     if(action === 'login'){ closeDrawer(); setTimeout(openAuth, 250); return; }
     if(action === 'logout'){ logout(); return; }
@@ -1126,6 +1242,7 @@
   bindFavorites();
   bindProfile();
   bindOnboarding();
+  bindLeadScript();
   renderPresets();
 
   preload().then(function(){
