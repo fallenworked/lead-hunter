@@ -6,6 +6,7 @@ import { handleChat, handleAILimit } from './ai.js';
 import { termsPage, privacyPage, refundPage, offerPage } from './legal.js';
 import { handleTelegramAuth } from './telegram.js';
 import { runAutosearch } from './auto.js';
+import { handleTelegramWebhook } from './telegram_bot.js';
 import { handleGoogleStart, handleGoogleCallback } from './google.js';
 
 export default {
@@ -18,6 +19,7 @@ export default {
     if (url.pathname === '/style.css') return new Response(styleCss, { headers: { 'Content-Type': 'text/css; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
     if (url.pathname === '/script.js') return new Response(scriptJs, { headers: { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
     if (url.pathname === '/api/auth/telegram') return handleTelegramAuth(request, env);
+    if (url.pathname === '/api/telegram/webhook') return handleTelegramWebhook(request, env);
     if (url.pathname === '/api/auth/google/start') return handleGoogleStart(request, env);
     if (url.pathname === '/api/auth/google/callback') return handleGoogleCallback(request, env);
     if (url.pathname === '/api/auth/register') return handleRegister(request, env);
