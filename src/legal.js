@@ -1,30 +1,30 @@
 const CSS = `
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;background:#050608;color:#eef0f5;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
-a{color:#4d9fff;text-decoration:none}
-a:hover{text-decoration:underline}
+body{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;background:#101012;color:#b4b4b6;font-size:13px;line-height:1.75;-webkit-font-smoothing:antialiased;background-image:radial-gradient(rgba(255,255,255,.035) 1px,transparent 1px);background-size:24px 24px}
+a{color:#f4f4c8;text-decoration:underline;text-underline-offset:2px}
+a:hover{color:#ffffff}
 .wrap{max-width:760px;margin:0 auto;padding:40px 24px 80px}
-.nav{display:flex;align-items:center;gap:12px;padding-bottom:24px;border-bottom:1px solid #1a1d26;margin-bottom:36px}
-.nav-logo{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#c9cdd6,#8b93a3);display:flex;align-items:center;justify-content:center;font-weight:900;color:#050608;font-size:14px}
-.nav-title{font-size:15px;font-weight:800;letter-spacing:.12em;background:linear-gradient(135deg,#fff,#8b93a3);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.nav-back{margin-left:auto;font-size:13px;color:#8b92a3;text-decoration:none;transition:color .2s}
-.nav-back:hover{color:#c9cdd6}
-h1{font-size:32px;font-weight:900;letter-spacing:-.03em;margin-bottom:8px;background:linear-gradient(135deg,#fff,#8b93a3);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.meta{font-size:13px;color:#5a6172;margin-bottom:32px}
-h2{font-size:20px;font-weight:800;letter-spacing:-.02em;margin:32px 0 12px;color:#eef0f5}
-h3{font-size:15px;font-weight:700;margin:20px 0 8px;color:#c9cdd6}
-p{margin-bottom:14px;color:#8b92a3}
-ul,ol{margin:0 0 16px 22px;color:#8b92a3}
-li{margin-bottom:8px}
-b,strong{color:#c9cdd6;font-weight:600}
-code{background:#11141a;padding:2px 6px;border-radius:4px;font-size:13px;color:#c9cdd6}
-.req{margin-top:40px;padding:20px;background:#0c0e13;border:1px solid #1a1d26;border-radius:12px;font-size:13px;color:#8b92a3}
-.req b{display:block;color:#c9cdd6;margin-bottom:8px;font-weight:700}
-footer{margin-top:60px;padding-top:24px;border-top:1px solid #1a1d26;font-size:12px;color:#5a6172;text-align:center}
+.nav{display:flex;align-items:center;gap:12px;padding-bottom:20px;border-bottom:1px solid #333335;margin-bottom:36px}
+.nav-logo{width:32px;height:32px;border-radius:4px;background:#f4f4c8;display:flex;align-items:center;justify-content:center;font-weight:600;color:#101012;font-size:11px;letter-spacing:.04em}
+.nav-title{font-size:12px;font-weight:600;letter-spacing:.24em;color:#f0f0f2;text-transform:uppercase}
+.nav-back{margin-left:auto;font-size:11px;color:#8e8e91;text-decoration:none;transition:color .15s;letter-spacing:.02em}
+.nav-back:hover{color:#f0f0f2}
+h1{font-size:26px;font-weight:600;letter-spacing:-.03em;line-height:1.25;margin-bottom:10px;color:#f0f0f2}
+.meta{font-size:10.5px;color:#646467;margin-bottom:32px;letter-spacing:.02em}
+h2{font-size:15px;font-weight:600;letter-spacing:.01em;margin:32px 0 10px;color:#f0f0f2;padding-bottom:8px;border-bottom:1px solid #242426}
+h3{font-size:12.5px;font-weight:600;margin:20px 0 8px;color:#d4d4d6}
+p{margin-bottom:14px;color:#8e8e91}
+ul,ol{margin:0 0 16px 20px;color:#8e8e91}
+li{margin-bottom:7px}
+b,strong{color:#d4d4d6;font-weight:600}
+code{background:#18181a;border:1px solid #2a2a2c;padding:1px 5px;border-radius:2px;font-size:11.5px;color:#d4d4d6}
+.req{margin-top:40px;padding:18px;background:#18181a;border:1px solid #333335;border-radius:4px;font-size:11.5px;color:#8e8e91;line-height:1.7}
+.req b{display:block;color:#f0f0f2;margin-bottom:8px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;font-size:10px}
+footer{margin-top:56px;padding-top:20px;border-top:1px solid #333335;font-size:10.5px;color:#646467;text-align:center;letter-spacing:.02em}
 `;
 
 function page(title, body) {
-  return '<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + title + ' · Lead Hunter</title><meta name="robots" content="index,follow"><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><style>' + CSS + '</style></head><body><div class="wrap"><nav class="nav"><div class="nav-logo">LH</div><div class="nav-title">LEAD HUNTER</div><a href="/" class="nav-back">← На главную</a></nav>' + body + '<footer>© 2026 Lead Hunter · Данные OpenStreetMap · Сделано на Cloudflare Workers</footer></div></body></html>';
+  return '<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + title + ' · Lead Hunter</title><meta name="robots" content="index,follow"><meta name="theme-color" content="#101012"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"><style>' + CSS + '</style></head><body><div class="wrap"><nav class="nav"><div class="nav-logo">LH</div><div class="nav-title">LEAD HUNTER</div><a href="/" class="nav-back">← На главную</a></nav>' + body + '<footer>© 2026 Lead Hunter · Данные OpenStreetMap · Сделано на Cloudflare Workers</footer></div></body></html>';
 }
 
 function terms() {
